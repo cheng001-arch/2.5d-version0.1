@@ -42,6 +42,13 @@ public:
 	// ワールド座標(3D座標)をスクリーン座標(2D座標)に変換する
 	void ConvertWorldToScreenDetail(const Math::Vector3& pos, Math::Vector3& result);
 
+	void CameraMove_1(const Math::Vector3& move) { m_mCam.Translation(m_mCam.Translation() + move); m_mView = m_mCam.Invert(); }// 摄像机1号移动函数，直接在世界坐标系中移动摄像机位置
+	void CameraMove_2(const Math::Vector3& move) { m_mCam.Translation(m_mCam.Translation() + m_mCam.Right() * move.x + m_mCam.Up() * move.y + m_mCam.Forward() * move.z); m_mView = m_mCam.Invert(); }// 摄像机2号移动函数，在摄像机坐标系中移动摄像机位置
+	
+	void LightMove(const Math::Vector3& move) { m_mCam.Translation(m_mCam.Translation() + move); m_mView = m_mCam.Invert(); }// 光源移动函数，直接在世界坐标系中移动光源位置
+
+
+
 protected:
 
 	// カメラ行列：3Dワールド空間上のカメラの行列情報

@@ -76,6 +76,12 @@
     <Filter Include="Src\Application\Scene\TitleScene">
       <UniqueIdentifier>{6036b8f3-498e-401e-865a-f8632985b816}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Application\GameSystem">
+      <UniqueIdentifier>{84147364-31ad-4aa2-b2e2-ccdc1da8d842}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Application\GameObject">
+      <UniqueIdentifier>{eecc45af-400e-4bb3-89dd-cfc94f346516}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Pch.h">
@@ -252,6 +258,23 @@
     <ClInclude Include="Src\Application\Scene\BaseScene\BaseScene.h">
       <Filter>Src\Application\Scene\BaseScene</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Application\GameSystem\GameManager.h"><Filter>Src\Application\GameSystem</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameSystem\LevelManager.h"><Filter>Src\Application\GameSystem</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameSystem\MapArea.h"><Filter>Src\Application\GameSystem</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameSystem\AreaManager.h"><Filter>Src\Application\GameSystem</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameSystem\GameColor.h"><Filter>Src\Application\GameSystem</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameSystem\PortalNetworkManager.h"><Filter>Src\Application\GameSystem</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameSystem\PortalTeleportService.h"><Filter>Src\Application\GameSystem</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\PlayerController2_5D.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\PlayerGroundChecker.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\PlayerCarrySlot.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\PlayerInteractor.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\ColorBall.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\BallThrowController.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\PortalDoor.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\DoorExitPoint.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\PortalVisualController.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\PlayerVoidRespawnController.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Pch.cpp">
@@ -398,6 +421,21 @@
     <ClCompile Include="Src\Application\Scene\BaseScene\BaseScene.cpp">
       <Filter>Src\Application\Scene\BaseScene</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Application\GameSystem\GameManager.cpp"><Filter>Src\Application\GameSystem</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameSystem\LevelManager.cpp"><Filter>Src\Application\GameSystem</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameSystem\MapArea.cpp"><Filter>Src\Application\GameSystem</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameSystem\AreaManager.cpp"><Filter>Src\Application\GameSystem</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameSystem\PortalNetworkManager.cpp"><Filter>Src\Application\GameSystem</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameSystem\PortalTeleportService.cpp"><Filter>Src\Application\GameSystem</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameObject\PlayerController2_5D.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameObject\PlayerGroundChecker.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameObject\PlayerCarrySlot.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameObject\PlayerInteractor.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameObject\ColorBall.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameObject\BallThrowController.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameObject\PortalDoor.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameObject\PortalVisualController.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameObject\PlayerVoidRespawnController.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Src\Framework\Shader\inc_KdCommon.hlsli">

@@ -21,6 +21,9 @@ public:
 	int		GetNowFPS()			const	{ return m_fpsController.m_nowfps; }
 	int		GetMaxFPS()			const	{ return m_fpsController.m_maxFps; }
 	float	GetDeltaTime()		const	{ return m_fpsController.GetDeltaTime(); }
+	// This framework stores delta time as a 60 FPS frame multiplier (about 1.0 at 60 FPS).
+	// Gameplay code that uses units per second must use this converted value.
+	float	GetDeltaSeconds()	const	{ return std::min(m_fpsController.GetDeltaTime() / 60.0f, 0.05f); }
 private:
 
 	void KdBeginUpdate();

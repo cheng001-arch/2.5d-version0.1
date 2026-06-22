@@ -3,6 +3,7 @@
 #include "MapArea.h"
 #include "PortalNetworkManager.h"
 #include "../GameObject/ColorBall.h"
+#include "../GameObject/PlayerController2_5D.h"
 #include "../GameObject/PortalDoor.h"
 
 void LevelManager::InitializeLevel()
@@ -35,7 +36,16 @@ void LevelManager::ResetLevel()
 	}
 
 	auto player = m_player.lock();
-	if (player) { player->SetPos(m_playerSpawnPoint); }
+	auto playerController = std::dynamic_pointer_cast<PlayerController2_5D>(player);
+	if (playerController)
+	{
+		playerController->WorkCarrySlot().ReleaseCurrentBall();
+		playerController->ApplyTeleport(m_playerSpawnPoint, 1.0f);
+	}
+	else if (player)
+	{
+		player->SetPos(m_playerSpawnPoint);
+	}
 
 	InitializeLevel();
 }

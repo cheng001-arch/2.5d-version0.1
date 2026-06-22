@@ -30,6 +30,7 @@ public:
 	bool IsConsumed() const { return m_isConsumed; }
 	bool IsModelLoaded() const { return m_model != nullptr; }
 	void SetHeldPosition(const Math::Vector3& position);
+	void SnapHeldPosition(const Math::Vector3& position);
 	void DropAt(const Math::Vector3& position);
 
 private:
@@ -38,6 +39,8 @@ private:
 	std::weak_ptr<MapArea> m_ownerArea;
 	bool m_isHeld = false;
 	bool m_isFlying = false;
+	bool m_isPhysicsActive = false;
+	bool m_isRolling = false;
 	bool m_isConsumed = false;
 	Math::Vector3 m_initialPosition = Math::Vector3::Zero;
 	std::weak_ptr<MapArea> m_initialArea;
@@ -50,6 +53,12 @@ private:
 	float m_flightGravity = 18.0f;
 	float m_maxThrowDistance = 8.0f;
 	float m_flightTime = 0.0f;
+	float m_portalRespawnDelay = 0.25f;
+	float m_portalRespawnTimer = 0.0f;
+	float m_visualTime = 0.0f;
+	float m_restSpeedThreshold = 0.35f;
+	float m_landingHorizontalRetention = 0.45f;
+	float m_groundRollingFriction = 4.5f;
 	float m_collisionRadius = 0.633f;
 	float m_carrySpring = 42.0f;
 	float m_carryDamping = 9.0f;

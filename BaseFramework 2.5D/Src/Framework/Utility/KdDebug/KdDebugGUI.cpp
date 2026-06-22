@@ -1,6 +1,8 @@
 ﻿#include "../../../Application/main.h"
 
 #include "KdDebugGUI.h"
+#include "../../../Application/GameSystem/LevelManager.h"
+#include "../../../Application/Scene/SceneManager.h"
 
 KdDebugGUI::KdDebugGUI()
 {}
@@ -21,7 +23,9 @@ void KdDebugGUI::GuiInit(int w, int h)
 	// ImGui::StyleColorsDark();
 	ImGui::StyleColorsClassic();
 	// Setup Platform/Renderer bindings
-	ImGui_ImplWin32_Init(Application::Instance().GetWindowHandle(), ImVec2(w,h));
+	ImGui_ImplWin32_Init(
+		Application::Instance().GetWindowHandle(),
+		ImVec2(static_cast<float>(w), static_cast<float>(h)));
 	ImGui_ImplDX11_Init(KdDirect3D::Instance().WorkDev(), KdDirect3D::Instance().WorkDevContext());
 
 #include "imgui/ja_glyph_ranges.h"
@@ -60,6 +64,37 @@ void KdDebugGUI::GuiProcess()
 
 	// ログウィンドウ
 	m_uqLog->Draw("Log Window");
+
+	if (ImGui::Begin("Level Debug"))
+	{
+		auto& levelManager = LevelManager::Instance();
+		ImGui::Text("Current Level : %d", levelManager.GetCurrentLevelId() + 1);
+
+		if (ImGui::Button("Load Level 1"))
+		{
+			levelManager.SetCurrentLevelId(0);
+			SceneManager::Instance().ReloadCurrentScene();
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("Load Level 2"))
+		{
+			levelManager.SetCurrentLevelId(1);
+			SceneManager::Instance().ReloadCurrentScene();
+		}
+
+		if (ImGui::Button("Load Level 3", ImVec2(-FLT_MIN, 0.0f)))
+		{
+			levelManager.SetCurrentLevelId(2);
+			SceneManager::Instance().ReloadCurrentScene();
+		}
+
+		if (ImGui::Button("Reload Current Level"))
+		{
+			SceneManager::Instance().ReloadCurrentScene();
+		}
+	}
+	ImGui::End();
 
 	//=====================================================
 	// ログ出力 ・・・ AddLog("～") で追加

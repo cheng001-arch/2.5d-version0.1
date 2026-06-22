@@ -275,6 +275,11 @@
     <ClInclude Include="Src\Application\GameObject\DoorExitPoint.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
     <ClInclude Include="Src\Application\GameObject\PortalVisualController.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
     <ClInclude Include="Src\Application\GameObject\PlayerVoidRespawnController.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\RainbowGoalDoor.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\LevelTransitionController.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\UI\MenuButton.h"><Filter>Src\Application</Filter></ClInclude>
+    <ClInclude Include="Src\Application\UI\TitleMenuUI.h"><Filter>Src\Application</Filter></ClInclude>
+    <ClInclude Include="Src\Application\UI\PauseMenuUI.h"><Filter>Src\Application</Filter></ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Pch.cpp">
@@ -436,6 +441,11 @@
     <ClCompile Include="Src\Application\GameObject\PortalDoor.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
     <ClCompile Include="Src\Application\GameObject\PortalVisualController.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
     <ClCompile Include="Src\Application\GameObject\PlayerVoidRespawnController.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameObject\RainbowGoalDoor.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameObject\LevelTransitionController.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
+    <ClCompile Include="Src\Application\UI\MenuButton.cpp"><Filter>Src\Application</Filter></ClCompile>
+    <ClCompile Include="Src\Application\UI\TitleMenuUI.cpp"><Filter>Src\Application</Filter></ClCompile>
+    <ClCompile Include="Src\Application\UI\PauseMenuUI.cpp"><Filter>Src\Application</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Src\Framework\Shader\inc_KdCommon.hlsli">

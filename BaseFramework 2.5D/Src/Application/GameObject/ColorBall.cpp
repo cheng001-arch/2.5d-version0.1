@@ -27,14 +27,43 @@ void ColorBall::Init()
 void ColorBall::Update()
 {
 	if (GameManager::Instance().IsPaused()) { return; }
-	if (m_isConsumed) { return; }
+	const float deltaSeconds = Application::Instance().GetDeltaSeconds();
+	m_visualTime += deltaSeconds;
+	if (m_ballColor == GameColor::Rainbow && m_model)
+	{
+		const auto channel = [this](float phase)
+		{
+			return 0.55f + 0.45f * std::sin(m_visualTime * 3.2f + phase);
+		};
+		for (auto& material : m_model->WorkMaterials())
+		{
+			if (material.m_name == "M_BallTintable")
+			{
+				material.m_baseColorRate = {
+					channel(0.0f),
+					channel(2.094395f),
+					channel(4.188790f),
+					1.0f
+				};
+				break;
+			}
+		}
+	}
+	if (m_isConsumed)
+	{
+		m_portalRespawnTimer = std::max(
+			0.0f, m_portalRespawnTimer - deltaSeconds);
+		if (m_portalRespawnTimer <= 0.0f)
+		{
+			ResetState();
+		}
+		return;
+	}
 	if (!m_isHeld && GetPos().y < LevelManager::Instance().GetVoidY())
 	{
 		ResetState();
 		return;
 	}
-
-	const float deltaSeconds = Application::Instance().GetDeltaSeconds();
 
 	if (m_isHeld)
 	{
@@ -59,51 +88,112 @@ void ColorBall::Update()
 		return;
 	}
 
-	if (!m_isFlying) { return; }
+	if (!m_isPhysicsActive) { return; }
 
 	Math::Vector3 position = GetPos();
 	m_flightTime += deltaSeconds;
 	m_flyVelocity.y -= m_flightGravity * deltaSeconds;
-	const Math::Vector3 nextPosition = position + m_flyVelocity * deltaSeconds;
+	Math::Vector3 nextPosition = position + m_flyVelocity * deltaSeconds;
 
 	if (m_flightTime >= 0.12f)
 	{
 		const KdCollider::SphereInfo flyingSphere(
 			KdCollider::TypeBump, nextPosition, m_collisionRadius);
 
-		// Doors take priority over the surrounding map so a ball touching both
-		// on the same frame still colors the door.
-		for (auto& object : SceneManager::Instance().GetObjList())
+		// Only a thrown projectile colors a door. A ball falling after hitting
+		// a wall remains physical, but no longer behaves as a projectile.
+		if (m_isFlying)
 		{
-			auto door = std::dynamic_pointer_cast<PortalDoor>(object);
-			if (door && door->Intersects(flyingSphere, nullptr))
+			for (auto& object : SceneManager::Instance().GetObjList())
 			{
-				door->OnBallHit(m_ballColor);
-				OnHitPortalDoor(door);
-				return;
+				auto door = std::dynamic_pointer_cast<PortalDoor>(object);
+				if (door && door->Intersects(flyingSphere, nullptr))
+				{
+					door->OnBallHit(m_ballColor);
+					OnHitPortalDoor(door);
+					return;
+				}
 			}
 		}
 
+		bool hitGround = false;
+		bool hitWall = false;
 		for (auto& object : SceneManager::Instance().GetObjList())
 		{
 			if (!object || object.get() == this) { continue; }
 			if (std::dynamic_pointer_cast<PlayerController2_5D>(object)) { continue; }
 			if (std::dynamic_pointer_cast<PortalDoor>(object)) { continue; }
-			if (object->Intersects(flyingSphere, nullptr))
+
+			std::list<KdCollider::CollisionResult> results;
+			if (!object->Intersects(flyingSphere, &results)) { continue; }
+
+			for (const auto& result : results)
 			{
-				m_isFlying = false;
+				Math::Vector3 pushDirection = result.m_hitDir;
+				if (pushDirection.LengthSquared() <= 0.000001f) { continue; }
+				pushDirection.Normalize();
+				nextPosition += pushDirection * result.m_overlapDistance;
+
+				const float velocityIntoSurface = m_flyVelocity.Dot(pushDirection);
+				if (velocityIntoSurface < 0.0f)
+				{
+					m_flyVelocity -= pushDirection * velocityIntoSurface;
+				}
+
+				if (pushDirection.y > 0.55f)
+				{
+					hitGround = true;
+				}
+				else if (std::abs(pushDirection.x) > 0.45f)
+				{
+					hitWall = true;
+				}
+			}
+		}
+
+		if (hitWall)
+		{
+			m_isFlying = false;
+			m_isRolling = false;
+			m_flyVelocity.x = 0.0f;
+		}
+
+		if (hitGround && m_flyVelocity.y <= m_restSpeedThreshold)
+		{
+			m_isFlying = false;
+			m_flyVelocity.y = 0.0f;
+
+			if (!m_isRolling)
+			{
+				// Keep a small amount of the throw's horizontal momentum on
+				// first landing so the ball rolls forward instead of freezing.
+				m_isRolling = true;
+				m_flyVelocity.x *= m_landingHorizontalRetention;
+			}
+
+			const float frictionStep = m_groundRollingFriction * deltaSeconds;
+			if (std::abs(m_flyVelocity.x) <=
+				std::max(m_restSpeedThreshold, frictionStep))
+			{
+				m_isRolling = false;
+				m_isPhysicsActive = false;
 				m_flyVelocity = Math::Vector3::Zero;
-				return;
+			}
+			else
+			{
+				m_flyVelocity.x +=
+					m_flyVelocity.x > 0.0f ? -frictionStep : frictionStep;
 			}
 		}
 	}
 
 	SetPos(nextPosition);
 
-	if ((nextPosition - m_throwStartPosition).Length() >= m_maxThrowDistance)
+	if (m_isFlying &&
+		(nextPosition - m_throwStartPosition).Length() >= m_maxThrowDistance)
 	{
 		m_isFlying = false;
-		m_flyVelocity = Math::Vector3::Zero;
+		m_flyVelocity.x = 0.0f;
 	}
 }
 
@@ -130,6 +220,8 @@ void ColorBall::OnPickedUp()
 	if (m_isConsumed) { return; }
 	m_isHeld = true;
 	m_isFlying = false;
+	m_isPhysicsActive = false;
+	m_isRolling = false;
 	m_heldTargetPosition = GetPos();
 	m_carryVelocity = Math::Vector3::Zero;
 }
@@ -138,6 +230,8 @@ void ColorBall::OnThrown(const Math::Vector3& direction, float speed, float maxD
 {
 	m_isHeld = false;
 	m_isFlying = speed > 0.0f && maxDistance > 0.0f;
+	m_isPhysicsActive = m_isFlying;
+	m_isRolling = false;
 	m_carryVelocity = Math::Vector3::Zero;
 	m_flyDirection = direction;
 	if (m_flyDirection.LengthSquared() > 0.0f) { m_flyDirection.Normalize(); }
@@ -154,6 +248,8 @@ void ColorBall::OnThrownArc(
 {
 	m_isHeld = false;
 	m_isFlying = launchVelocity.LengthSquared() > 0.0f && maxDistance > 0.0f;
+	m_isPhysicsActive = m_isFlying;
+	m_isRolling = false;
 	m_carryVelocity = Math::Vector3::Zero;
 	m_flyVelocity = launchVelocity;
 	m_flightGravity = std::max(0.0f, gravity);
@@ -165,8 +261,11 @@ void ColorBall::OnThrownArc(
 void ColorBall::OnHitPortalDoor(const std::shared_ptr<KdGameObject>&)
 {
 	m_isFlying = false;
+	m_isPhysicsActive = false;
+	m_isRolling = false;
 	m_isHeld = false;
 	m_isConsumed = true;
+	m_portalRespawnTimer = m_portalRespawnDelay;
 	m_flyVelocity = Math::Vector3::Zero;
 	m_carryVelocity = Math::Vector3::Zero;
 }
@@ -176,7 +275,10 @@ void ColorBall::ResetState()
 	m_ownerArea = m_initialArea;
 	m_isHeld = false;
 	m_isFlying = false;
+	m_isPhysicsActive = false;
+	m_isRolling = false;
 	m_isConsumed = false;
+	m_portalRespawnTimer = 0.0f;
 	m_flyDirection = Math::Vector3::Zero;
 	m_flyVelocity = Math::Vector3::Zero;
 	m_carryVelocity = Math::Vector3::Zero;
@@ -188,11 +290,27 @@ void ColorBall::SetHeldPosition(const Math::Vector3& position)
 	if (m_isHeld) { m_heldTargetPosition = position; }
 }
 
+void ColorBall::SnapHeldPosition(const Math::Vector3& position)
+{
+	if (!m_isHeld) { return; }
+	m_heldTargetPosition = position;
+	m_carryVelocity = Math::Vector3::Zero;
+	m_flyVelocity = Math::Vector3::Zero;
+	m_isFlying = false;
+	m_isPhysicsActive = false;
+	m_isRolling = false;
+	SetPos(position);
+}
+
 void ColorBall::DropAt(const Math::Vector3& position)
 {
 	m_isHeld = false;
 	m_isFlying = false;
+	m_isPhysicsActive = true;
+	m_isRolling = false;
 	m_flyVelocity = Math::Vector3::Zero;
+	m_flightGravity = 18.0f;
+	m_flightTime = 0.12f;
 	m_carryVelocity = Math::Vector3::Zero;
 	SetPos(position);
 }
@@ -210,6 +328,14 @@ void ColorBall::SetBallColor(GameColor color)
 	else if (color == GameColor::White)
 	{
 		visualColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+	}
+	else if (color == GameColor::Red)
+	{
+		visualColor = { 1.0f, 0.035f, 0.025f, 1.0f };
+	}
+	else if (color == GameColor::Rainbow)
+	{
+		visualColor = { 1.0f, 0.25f, 0.75f, 1.0f };
 	}
 
 	for (auto& material : m_model->WorkMaterials())

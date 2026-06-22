@@ -292,6 +292,11 @@
     <ClInclude Include="Src\Application\GameObject\DoorExitPoint.h" />
     <ClInclude Include="Src\Application\GameObject\PortalVisualController.h" />
     <ClInclude Include="Src\Application\GameObject\PlayerVoidRespawnController.h" />
+    <ClInclude Include="Src\Application\GameObject\RainbowGoalDoor.h" />
+    <ClInclude Include="Src\Application\GameObject\LevelTransitionController.h" />
+    <ClInclude Include="Src\Application\UI\MenuButton.h" />
+    <ClInclude Include="Src\Application\UI\TitleMenuUI.h" />
+    <ClInclude Include="Src\Application\UI\PauseMenuUI.h" />
     <ClInclude Include="Src\Application\Scene\GameScene\GameScene.h" />
     <ClInclude Include="Src\Application\Scene\SceneManager.h" />
     <ClInclude Include="Src\Application\Scene\TitleScene\TitleScene.h" />
@@ -360,6 +365,11 @@
     <ClCompile Include="Src\Application\GameObject\PortalDoor.cpp" />
     <ClCompile Include="Src\Application\GameObject\PortalVisualController.cpp" />
     <ClCompile Include="Src\Application\GameObject\PlayerVoidRespawnController.cpp" />
+    <ClCompile Include="Src\Application\GameObject\RainbowGoalDoor.cpp" />
+    <ClCompile Include="Src\Application\GameObject\LevelTransitionController.cpp" />
+    <ClCompile Include="Src\Application\UI\MenuButton.cpp" />
+    <ClCompile Include="Src\Application\UI\TitleMenuUI.cpp" />
+    <ClCompile Include="Src\Application\UI\PauseMenuUI.cpp" />
     <ClCompile Include="Src\Application\Scene\GameScene\GameScene.cpp" />
     <ClCompile Include="Src\Application\Scene\SceneManager.cpp" />
     <ClCompile Include="Src\Application\Scene\TitleScene\TitleScene.cpp" />

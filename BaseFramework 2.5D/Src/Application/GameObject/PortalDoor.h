@@ -14,6 +14,10 @@ public:
 	void Update() override;
 	void GenerateDepthMapFromLight() override;
 	void DrawLit() override;
+	void SetModelAssetPath(std::string_view assetPath)
+	{
+		m_modelAssetPath = assetPath;
+	}
 
 	// The imported door is kept parallel to the ZY plane. This places its
 	// visible center at the requested gameplay position.
@@ -38,7 +42,7 @@ public:
 	bool IsTeleportCoolingDown() const { return m_teleportCooldownRemaining > 0.0f; }
 
 	bool SetColor(GameColor color);
-	bool OnBallHit(GameColor ballColor);
+	virtual bool OnBallHit(GameColor ballColor);
 	void ResetToInitialState();
 
 	void SetInitialColor(GameColor color);
@@ -52,6 +56,11 @@ public:
 	bool IsFixedColor() const { return m_isFixedColor; }
 	bool CanBeActivated() const { return m_canBeActivated; }
 	bool IsActivated() const { return m_isActivated; }
+	const Math::Vector3& GetCenterPosition() const { return m_centerPosition; }
+	void SetPortalSurfaceVisualColor(const Math::Vector4& color)
+	{
+		m_visualController.SetSurfaceColor(color);
+	}
 
 	bool IsModelLoaded() const { return m_model != nullptr; }
 	bool HasPortalSurface() const { return m_hasPortalSurface; }
@@ -60,6 +69,7 @@ private:
 	void DetectPlayerEntry();
 
 	std::shared_ptr<KdModelData> m_model;
+	std::string m_modelAssetPath = "Asset/Data/door/door.gltf";
 	std::weak_ptr<MapArea> m_ownerArea;
 	std::string m_doorId;
 	Math::Vector3 m_centerPosition = Math::Vector3::Zero;

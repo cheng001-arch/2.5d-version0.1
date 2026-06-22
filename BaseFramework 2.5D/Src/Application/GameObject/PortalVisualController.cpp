@@ -17,6 +17,9 @@ void PortalVisualController::UpdateDoorColorVisual(GameColor color, bool isActiv
 		case GameColor::White:
 			visualColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 			break;
+		case GameColor::Red:
+			visualColor = { 1.0f, 0.035f, 0.025f, 1.0f };
+			break;
 		case GameColor::Rainbow:
 			visualColor = { 1.0f, 0.35f, 0.8f, 1.0f };
 			break;
@@ -25,11 +28,19 @@ void PortalVisualController::UpdateDoorColorVisual(GameColor color, bool isActiv
 		}
 	}
 
+	SetSurfaceColor(visualColor);
+}
+
+void PortalVisualController::SetSurfaceColor(const Math::Vector4& color)
+{
+	auto model = m_model.lock();
+	if (!model) { return; }
+
 	for (auto& material : model->WorkMaterials())
 	{
 		if (material.m_name == "M_PortalTintable")
 		{
-			material.m_baseColorRate = visualColor;
+			material.m_baseColorRate = color;
 			break;
 		}
 	}

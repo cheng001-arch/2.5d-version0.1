@@ -54,3 +54,15 @@ void PlayerCarrySlot::UpdateCarryPosition(
 	offset.x *= facingDirection;
 	m_currentBall->SetHeldPosition(playerPosition + offset);
 }
+
+void PlayerCarrySlot::SnapCarryPosition(
+	const Math::Vector3& playerPosition, float facingDirection)
+{
+	m_lastPlayerPosition = playerPosition;
+	m_lastFacingDirection = facingDirection;
+	if (!m_currentBall) { return; }
+
+	Math::Vector3 offset = m_carryPoint;
+	offset.x *= facingDirection;
+	m_currentBall->SnapHeldPosition(playerPosition + offset);
+}

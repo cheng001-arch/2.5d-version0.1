@@ -28,7 +28,7 @@ void GameManager::LoadNextLevel()
 	level.SetCurrentLevelId(level.GetCurrentLevelId() + 1);
 	m_isLevelComplete = false;
 	m_isPaused = false;
-	SceneManager::Instance().SetNextScene(SceneManager::SceneType::Game);
+	SceneManager::Instance().ReloadCurrentScene();
 }
 
 void GameManager::PauseGame()

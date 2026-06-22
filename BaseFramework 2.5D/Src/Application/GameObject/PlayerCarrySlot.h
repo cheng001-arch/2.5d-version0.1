@@ -11,6 +11,7 @@ public:
 	void DropCurrentBall();
 	void ThrowCurrentBall(const Math::Vector3& direction, float speed, float maxDistance);
 	void UpdateCarryPosition(const Math::Vector3& playerPosition, float facingDirection);
+	void SnapCarryPosition(const Math::Vector3& playerPosition, float facingDirection);
 	std::shared_ptr<ColorBall> ReleaseCurrentBall();
 
 	void SetCarryPoint(const Math::Vector3& point) { m_carryPoint = point; }

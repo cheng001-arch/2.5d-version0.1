@@ -35,24 +35,21 @@ std::shared_ptr<PortalDoor> PortalNetworkManager::GetLinkedDoor(
 		return nullptr;
 	}
 
-	auto sourceArea = sourceDoor->GetOwnerArea();
-	if (!sourceArea) { return nullptr; }
-
 	std::vector<std::shared_ptr<PortalDoor>> matchingDoors;
 	for (const auto& weakDoor : m_allDoors)
 	{
 		auto door = weakDoor.lock();
 		if (!door ||
 			!door->IsActivated() ||
-			door->GetCurrentColor() != sourceDoor->GetCurrentColor() ||
-			door->GetOwnerArea() != sourceArea)
+			door->GetCurrentColor() != sourceDoor->GetCurrentColor())
 		{
 			continue;
 		}
 		matchingDoors.emplace_back(door);
 	}
 
-	// A color is linked only when exactly two active doors exist in this Area.
+	// A color is linked only when exactly two active doors exist in the level.
+	// Their owner Areas may differ; TeleportService performs the Area switch.
 	if (matchingDoors.size() != 2) { return nullptr; }
 	return matchingDoors[0] == sourceDoor ? matchingDoors[1] : matchingDoors[0];
 }

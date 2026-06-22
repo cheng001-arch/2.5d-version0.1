@@ -1,5 +1,6 @@
 #include "PlayerController2_5D.h"
 #include "ColorBall.h"
+#include "PortalDoor.h"
 #include "../GameSystem/AreaManager.h"
 #include "../GameSystem/GameManager.h"
 #include "../GameSystem/MapArea.h"
@@ -133,6 +134,7 @@ void PlayerController2_5D::ResolveHorizontalCollisions()
 		for (auto& object : SceneManager::Instance().GetObjList())
 		{
 			if (!object || object.get() == this) { continue; }
+			if (std::dynamic_pointer_cast<PortalDoor>(object)) { continue; }
 
 			std::list<KdCollider::CollisionResult> results;
 			if (!object->Intersects(bodySphere, &results)) { continue; }
@@ -293,5 +295,12 @@ void PlayerController2_5D::ApplyTeleport(
 	m_verticalVelocity = 0.0f;
 	m_moveInput = 0.0f;
 	m_groundChecker.CheckGround();
-	m_carrySlot.UpdateCarryPosition(GetPos(), m_facingDirection);
+
+	auto currentBall = m_carrySlot.GetCurrentBall();
+	auto currentArea = m_currentArea.lock();
+	if (currentBall && currentArea)
+	{
+		currentBall->SetOwnerArea(currentArea);
+	}
+	m_carrySlot.SnapCarryPosition(GetPos(), m_facingDirection);
 }

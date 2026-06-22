@@ -7,17 +7,25 @@
 #include "../../GameObject/ColorBall.h"
 #include "../../GameObject/PortalDoor.h"
 #include "../../GameObject/PlayerVoidRespawnController.h"
+#include "../../GameObject/RainbowGoalDoor.h"
+#include "../../GameObject/LevelTransitionController.h"
+#include "../../UI/PauseMenuUI.h"
 #include "../../main.h"
 
 namespace
 {
-	class Map1 : public KdGameObject
+	class StageMap : public KdGameObject
 	{
 	public:
+		StageMap(std::string_view assetPath, std::string_view colliderName)
+			: m_assetPath(assetPath), m_colliderName(colliderName)
+		{
+		}
+
 		void Init() override
 		{
 			m_model = std::make_shared<KdModelData>();
-			if (!m_model->Load("Asset/Data/map1/map_floor.gltf"))
+			if (!m_model->Load(m_assetPath))
 			{
 				m_isExpired = true;
 				return;
@@ -30,7 +38,8 @@ namespace
 
 			m_pCollider = std::make_unique<KdCollider>();
 			m_pCollider->RegisterCollisionShape(
-				"Map1Ground", m_model, KdCollider::TypeGround | KdCollider::TypeBump);
+				m_colliderName, m_model,
+				KdCollider::TypeGround | KdCollider::TypeBump);
 		}
 
 		void GenerateDepthMapFromLight() override
@@ -46,13 +55,79 @@ namespace
 		}
 
 	private:
+		std::string m_assetPath;
+		std::string m_colliderName;
 		std::shared_ptr<KdModelData> m_model;
+	};
+
+	class StagePlatform : public KdGameObject
+	{
+	public:
+		StagePlatform(
+			const Math::Vector3& topCenter,
+			const Math::Vector3& size)
+			: m_topCenter(topCenter), m_size(size)
+		{
+		}
+
+		void Init() override
+		{
+			m_polygon = std::make_shared<KdSquarePolygon>(
+				"Asset/Data/map1/stone_floor.png");
+			m_polygon->SetScale({ m_size.x, m_size.z });
+			m_polygon->SetPivot(KdSquarePolygon::PivotType::Center_Middle);
+
+			m_mWorld = Math::Matrix::CreateTranslation(m_topCenter);
+
+			DirectX::BoundingBox collisionBox;
+			collisionBox.Center = {
+				0.0f,
+				-m_size.y * 0.5f,
+				0.0f
+			};
+			collisionBox.Extents = {
+				m_size.x * 0.5f,
+				m_size.y * 0.5f,
+				m_size.z * 0.5f
+			};
+			m_pCollider = std::make_unique<KdCollider>();
+			m_pCollider->RegisterCollisionShape(
+				"StagePlatform",
+				collisionBox,
+				KdCollider::TypeGround | KdCollider::TypeBump);
+		}
+
+		void DrawUnLit() override
+		{
+			if (!m_polygon) { return; }
+			const Math::Matrix drawMatrix =
+				Math::Matrix::CreateRotationX(DirectX::XM_PIDIV2) *
+				m_mWorld;
+			KdShaderManager::Instance().m_StandardShader.DrawPolygon(
+				*m_polygon, drawMatrix);
+		}
+
+	private:
+		Math::Vector3 m_topCenter;
+		Math::Vector3 m_size;
+		std::shared_ptr<KdSquarePolygon> m_polygon;
 	};
 }
 
 void GameScene::Event()
 {
 	UpdateFollowCamera();
+
+	if (GetAsyncKeyState(VK_ESCAPE) & 0x0001)
+	{
+		const bool shouldOpen = !m_pauseMenu || !m_pauseMenu->IsOpen();
+		if (m_pauseMenu) { m_pauseMenu->SetOpen(shouldOpen); }
+		shouldOpen
+			? GameManager::Instance().PauseGame()
+			: GameManager::Instance().ResumeGame();
+	}
+
+	if (m_pauseMenu && m_pauseMenu->IsOpen()) { return; }
 
 	if (GetAsyncKeyState('P') & 0x0001)
 	{
@@ -62,7 +137,11 @@ void GameScene::Event()
 
 	if (GetAsyncKeyState('R') & 0x0001)
 	{
-		GameManager::Instance().RestartLevel();
+		auto player = m_player.lock();
+		if (player)
+		{
+			LevelTransitionController::StartRestartLevelTransition(player);
+		}
 	}
 
 	if (GetAsyncKeyState('T') & 0x8000)
@@ -74,25 +153,78 @@ void GameScene::Event()
 	}
 }
 
+void GameScene::PreDraw()
+{
+	BaseScene::PreDraw();
+
+	if (!m_levelBackground) { return; }
+
+	KdShaderManager::Instance().m_spriteShader.Begin();
+	KdShaderManager::Instance().m_spriteShader.DrawTex(
+		m_levelBackground.get(),
+		static_cast<int>(m_backgroundOffsetX),
+		0,
+		1360,
+		766);
+	KdShaderManager::Instance().m_spriteShader.End();
+}
+
 void GameScene::Init()
 {
 	auto& levelManager = LevelManager::Instance();
 	levelManager.ClearLevel();
-	levelManager.SetPlayerSpawnPoint({ 2.0f, 1.0f, 0.0f });
+	const int currentLevelId = levelManager.GetCurrentLevelId();
+	const bool isLevel1 = currentLevelId == 0;
+	const bool isLevel2 = currentLevelId == 1;
+	const bool isLevel3 = currentLevelId >= 2;
+	const bool usesMap2 = !isLevel1;
+
+	const std::string mapAssetPath = usesMap2
+		? "Asset/Data/map2/map2.gltf"
+		: "Asset/Data/map1/map_floor.gltf";
+	const std::string mapColliderName = usesMap2
+		? "Map2Ground"
+		: "Map1Ground";
+	const Math::Vector3 spawnPoint = usesMap2
+		? Math::Vector3(-48.0f, 1.0f, 0.0f)
+		: Math::Vector3(2.0f, 1.0f, 0.0f);
+
+	levelManager.SetPlayerSpawnPoint(spawnPoint);
 	levelManager.SetVoidBaseY(0.0f);
 	levelManager.SetVoidFallDistance(8.0f);
 
-	auto map = std::make_shared<Map1>();
+	auto map = std::make_shared<StageMap>(mapAssetPath, mapColliderName);
 	map->Init();
 	AddObject(map);
 
 	auto startArea = std::make_shared<MapArea>();
 	startArea->SetAreaId(0);
-	startArea->SetAreaName("Area_Start");
+	startArea->SetAreaName(
+		isLevel1 ? "Area_Start" :
+		isLevel2 ? "Area_Level2" :
+		"Area_Level3_Main");
 	startArea->SetGameplayZ(0.0f);
 	startArea->SetAreaRoot(map);
 	AddObject(startArea);
 	levelManager.RegisterArea(startArea);
+
+	std::shared_ptr<MapArea> rainbowRoomArea;
+	if (isLevel3)
+	{
+		auto rainbowRoomMap = std::make_shared<StageMap>(
+			"Asset/Data/map2/map2.gltf", "Map2RainbowRoomGround");
+		rainbowRoomMap->Init();
+		rainbowRoomMap->SetPos({ 0.0f, 0.0f, 20.0f });
+		AddObject(rainbowRoomMap);
+
+		rainbowRoomArea = std::make_shared<MapArea>();
+		rainbowRoomArea->SetAreaId(1);
+		rainbowRoomArea->SetAreaName("Area_Level3_RainbowRoom");
+		rainbowRoomArea->SetGameplayZ(20.0f);
+		rainbowRoomArea->SetAreaRoot(rainbowRoomMap);
+		AddObject(rainbowRoomArea);
+		levelManager.RegisterArea(rainbowRoomArea);
+	}
 	levelManager.InitializeLevel();
 
 	auto player = std::make_shared<PlayerController2_5D>();
@@ -102,60 +234,304 @@ void GameScene::Init()
 	AddObject(player);
 	levelManager.SetPlayer(player);
 	m_player = player;
+	m_levelBackground = std::make_shared<KdTexture>(
+		"Asset/Textures/screen/beijing1.png");
+	m_backgroundOriginPlayerX = player->GetPos().x;
+	m_backgroundOffsetX = 0.0f;
+
+	auto levelTransition = std::make_shared<LevelTransitionController>();
+	levelTransition->AttachPlayer(player);
+	AddObject(levelTransition);
 
 	auto voidRespawnController = std::make_shared<PlayerVoidRespawnController>();
 	voidRespawnController->SetPlayer(player);
 	AddObject(voidRespawnController);
 
-	auto blackBall = std::make_shared<ColorBall>();
-	blackBall->Init();
-	blackBall->SetBallColor(GameColor::Black);
-	blackBall->SetOwnerArea(startArea);
-	blackBall->SetPos({ 8.0f, 1.633f, 0.0f });
-	blackBall->SaveInitialState();
-	AddObject(blackBall);
-	startArea->RegisterBall(blackBall);
-	levelManager.RegisterBall(blackBall);
+	m_pauseMenu = std::make_shared<PauseMenuUI>();
+	m_pauseMenu->Init();
+	AddObject(m_pauseMenu);
 
-	auto whiteBall = std::make_shared<ColorBall>();
-	whiteBall->Init();
-	whiteBall->SetBallColor(GameColor::White);
-	whiteBall->SetOwnerArea(startArea);
-	whiteBall->SetPos({ 12.0f, 1.633f, 0.0f });
-	whiteBall->SaveInitialState();
-	AddObject(whiteBall);
-	startArea->RegisterBall(whiteBall);
-	levelManager.RegisterBall(whiteBall);
+	if (isLevel1)
+	{
+		auto blackBall = std::make_shared<ColorBall>();
+		blackBall->Init();
+		blackBall->SetBallColor(GameColor::Black);
+		blackBall->SetOwnerArea(startArea);
+		blackBall->SetPos({ 8.0f, 1.633f, 0.0f });
+		blackBall->SaveInitialState();
+		AddObject(blackBall);
+		startArea->RegisterBall(blackBall);
+		levelManager.RegisterBall(blackBall);
 
-	// Import test: two independent door instances with independently tinted
-	// Portal_Surface materials.
-	auto leftDoor = std::make_shared<PortalDoor>();
-	leftDoor->Init();
-	leftDoor->SetDoorId("Door_A");
-	leftDoor->SetOwnerArea(startArea);
-	leftDoor->SetPlacement({ 30.0f, 2.0f, 0.0f });
-	leftDoor->SetExitPoint({ 31.5f, 1.0f, 0.0f }, 1.0f);
-	leftDoor->SetInitialColor(GameColor::None);
-	leftDoor->SetCanBeColored(true);
-	leftDoor->SetFixedColor(false);
-	leftDoor->SetCanBeActivated(true);
-	AddObject(leftDoor);
-	startArea->RegisterDoor(leftDoor);
-	levelManager.RegisterDoor(leftDoor);
+		auto whiteBall = std::make_shared<ColorBall>();
+		whiteBall->Init();
+		whiteBall->SetBallColor(GameColor::White);
+		whiteBall->SetOwnerArea(startArea);
+		whiteBall->SetPos({ 12.0f, 1.633f, 0.0f });
+		whiteBall->SaveInitialState();
+		AddObject(whiteBall);
+		startArea->RegisterBall(whiteBall);
+		levelManager.RegisterBall(whiteBall);
 
-	auto rightDoor = std::make_shared<PortalDoor>();
-	rightDoor->Init();
-	rightDoor->SetDoorId("Door_B");
-	rightDoor->SetOwnerArea(startArea);
-	rightDoor->SetPlacement({ 70.0f, 2.0f, 0.0f });
-	rightDoor->SetExitPoint({ 68.5f, 1.0f, 0.0f }, -1.0f);
-	rightDoor->SetInitialColor(GameColor::Black);
-	rightDoor->SetCanBeColored(false);
-	rightDoor->SetFixedColor(true);
-	rightDoor->SetCanBeActivated(true);
-	AddObject(rightDoor);
-	startArea->RegisterDoor(rightDoor);
-	levelManager.RegisterDoor(rightDoor);
+		auto leftDoor = std::make_shared<PortalDoor>();
+		leftDoor->Init();
+		leftDoor->SetDoorId("Door_A");
+		leftDoor->SetOwnerArea(startArea);
+		leftDoor->SetPlacement({ 30.0f, 2.0f, 0.0f });
+		leftDoor->SetExitPoint({ 31.5f, 1.0f, 0.0f }, 1.0f);
+		leftDoor->SetInitialColor(GameColor::None);
+		leftDoor->SetCanBeColored(true);
+		leftDoor->SetFixedColor(false);
+		leftDoor->SetCanBeActivated(true);
+		AddObject(leftDoor);
+		startArea->RegisterDoor(leftDoor);
+		levelManager.RegisterDoor(leftDoor);
+
+		auto rightDoor = std::make_shared<PortalDoor>();
+		rightDoor->SetModelAssetPath("Asset/Data/door2/door2.gltf");
+		rightDoor->Init();
+		rightDoor->SetDoorId("Door_B");
+		rightDoor->SetOwnerArea(startArea);
+		rightDoor->SetPlacement({ 70.0f, 2.0f, 0.0f });
+		rightDoor->SetExitPoint({ 68.5f, 1.0f, 0.0f }, -1.0f);
+		rightDoor->SetInitialColor(GameColor::Black);
+		rightDoor->SetCanBeColored(false);
+		rightDoor->SetFixedColor(true);
+		rightDoor->SetCanBeActivated(true);
+		AddObject(rightDoor);
+		startArea->RegisterDoor(rightDoor);
+		levelManager.RegisterDoor(rightDoor);
+
+		auto goalDoor = std::make_shared<RainbowGoalDoor>();
+		goalDoor->Init();
+		goalDoor->SetDoorId("Rainbow_Goal");
+		goalDoor->SetOwnerArea(startArea);
+		goalDoor->SetPlacement({ 87.0f, 2.0f, 0.0f });
+		goalDoor->SetInitialColor(GameColor::Rainbow);
+		goalDoor->SetCanBeColored(false);
+		goalDoor->SetFixedColor(true);
+		goalDoor->SetCanBeActivated(true);
+		AddObject(goalDoor);
+		startArea->RegisterDoor(goalDoor);
+		levelManager.SetGoalDoor(goalDoor);
+	}
+	else if (isLevel2)
+	{
+		// Level 2 puzzle layout:
+		// Start/black ball/A are isolated on the left by the central wall.
+		// B/white ball are on the right ground.
+		// C and the rainbow goal are on the otherwise unreachable upper platform.
+		auto blackBall = std::make_shared<ColorBall>();
+		blackBall->Init();
+		blackBall->SetBallColor(GameColor::Black);
+		blackBall->SetOwnerArea(startArea);
+		blackBall->SetPos({ -44.0f, 1.633f, 0.0f });
+		blackBall->SaveInitialState();
+		AddObject(blackBall);
+		startArea->RegisterBall(blackBall);
+		levelManager.RegisterBall(blackBall);
+
+		auto whiteBall = std::make_shared<ColorBall>();
+		whiteBall->Init();
+		whiteBall->SetBallColor(GameColor::White);
+		whiteBall->SetOwnerArea(startArea);
+		whiteBall->SetPos({ 9.0f, 1.633f, 0.0f });
+		whiteBall->SaveInitialState();
+		AddObject(whiteBall);
+		startArea->RegisterBall(whiteBall);
+		levelManager.RegisterBall(whiteBall);
+
+		auto doorA = std::make_shared<PortalDoor>();
+		doorA->Init();
+		doorA->SetDoorId("Level2_Door_A");
+		doorA->SetOwnerArea(startArea);
+		doorA->SetPlacement({ -38.0f, 2.0f, 0.0f });
+		doorA->SetInitialColor(GameColor::None);
+		doorA->SetCanBeColored(true);
+		doorA->SetFixedColor(false);
+		doorA->SetCanBeActivated(true);
+		AddObject(doorA);
+		startArea->RegisterDoor(doorA);
+		levelManager.RegisterDoor(doorA);
+
+		auto fixedBlackDoorB = std::make_shared<PortalDoor>();
+		fixedBlackDoorB->SetModelAssetPath("Asset/Data/door2/door2.gltf");
+		fixedBlackDoorB->Init();
+		fixedBlackDoorB->SetDoorId("Level2_Door_B_Black");
+		fixedBlackDoorB->SetOwnerArea(startArea);
+		fixedBlackDoorB->SetPlacement({ 5.0f, 2.0f, 0.0f });
+		fixedBlackDoorB->SetInitialColor(GameColor::Black);
+		fixedBlackDoorB->SetCanBeColored(false);
+		fixedBlackDoorB->SetFixedColor(true);
+		fixedBlackDoorB->SetCanBeActivated(true);
+		AddObject(fixedBlackDoorB);
+		startArea->RegisterDoor(fixedBlackDoorB);
+		levelManager.RegisterDoor(fixedBlackDoorB);
+
+		auto fixedWhiteDoorC = std::make_shared<PortalDoor>();
+		fixedWhiteDoorC->SetModelAssetPath("Asset/Data/door2/door2.gltf");
+		fixedWhiteDoorC->Init();
+		fixedWhiteDoorC->SetDoorId("Level2_Door_C_White");
+		fixedWhiteDoorC->SetOwnerArea(startArea);
+		fixedWhiteDoorC->SetPlacement({ 14.0f, 12.827f, 0.0f });
+		fixedWhiteDoorC->SetInitialColor(GameColor::White);
+		fixedWhiteDoorC->SetCanBeColored(false);
+		fixedWhiteDoorC->SetFixedColor(true);
+		fixedWhiteDoorC->SetCanBeActivated(true);
+		AddObject(fixedWhiteDoorC);
+		startArea->RegisterDoor(fixedWhiteDoorC);
+		levelManager.RegisterDoor(fixedWhiteDoorC);
+
+		auto goalDoor = std::make_shared<RainbowGoalDoor>();
+		goalDoor->Init();
+		goalDoor->SetDoorId("Level2_Rainbow_Goal");
+		goalDoor->SetOwnerArea(startArea);
+		goalDoor->SetPlacement({ 23.0f, 12.827f, 0.0f });
+		goalDoor->SetInitialColor(GameColor::Rainbow);
+		goalDoor->SetCanBeColored(false);
+		goalDoor->SetFixedColor(true);
+		goalDoor->SetCanBeActivated(true);
+		AddObject(goalDoor);
+		startArea->RegisterDoor(goalDoor);
+		levelManager.SetGoalDoor(goalDoor);
+	}
+	else
+	{
+		// Level 3: white -> red route through variable Door A,
+		// then black Door B reaches the Z-offset rainbow-ball room.
+		auto whiteBall = std::make_shared<ColorBall>();
+		whiteBall->Init();
+		whiteBall->SetBallColor(GameColor::White);
+		whiteBall->SetOwnerArea(startArea);
+		whiteBall->SetPos({ -44.0f, 1.633f, 0.0f });
+		whiteBall->SaveInitialState();
+		AddObject(whiteBall);
+		startArea->RegisterBall(whiteBall);
+		levelManager.RegisterBall(whiteBall);
+
+		auto doorA = std::make_shared<PortalDoor>();
+		doorA->Init();
+		doorA->SetDoorId("Level3_Door_A_Variable");
+		doorA->SetOwnerArea(startArea);
+		doorA->SetPlacement({ -38.0f, 2.0f, 0.0f });
+		doorA->SetInitialColor(GameColor::None);
+		doorA->SetCanBeColored(true);
+		doorA->SetFixedColor(false);
+		doorA->SetCanBeActivated(true);
+		AddObject(doorA);
+		startArea->RegisterDoor(doorA);
+		levelManager.RegisterDoor(doorA);
+
+		auto fixedWhiteDoorC = std::make_shared<PortalDoor>();
+		fixedWhiteDoorC->SetModelAssetPath("Asset/Data/door2/door2.gltf");
+		fixedWhiteDoorC->Init();
+		fixedWhiteDoorC->SetDoorId("Level3_Door_C_White");
+		fixedWhiteDoorC->SetOwnerArea(startArea);
+		fixedWhiteDoorC->SetPlacement({ 5.0f, 2.0f, 0.0f });
+		fixedWhiteDoorC->SetInitialColor(GameColor::White);
+		fixedWhiteDoorC->SetCanBeColored(false);
+		fixedWhiteDoorC->SetFixedColor(true);
+		fixedWhiteDoorC->SetCanBeActivated(true);
+		AddObject(fixedWhiteDoorC);
+		startArea->RegisterDoor(fixedWhiteDoorC);
+		levelManager.RegisterDoor(fixedWhiteDoorC);
+
+		auto redBall = std::make_shared<ColorBall>();
+		redBall->Init();
+		redBall->SetBallColor(GameColor::Red);
+		redBall->SetOwnerArea(startArea);
+		redBall->SetPos({ 9.0f, 1.633f, 0.0f });
+		redBall->SaveInitialState();
+		AddObject(redBall);
+		startArea->RegisterBall(redBall);
+		levelManager.RegisterBall(redBall);
+
+		auto fixedRedDoorD = std::make_shared<PortalDoor>();
+		fixedRedDoorD->SetModelAssetPath("Asset/Data/door2/door2.gltf");
+		fixedRedDoorD->Init();
+		fixedRedDoorD->SetDoorId("Level3_Door_D_Red");
+		fixedRedDoorD->SetOwnerArea(startArea);
+		fixedRedDoorD->SetPlacement({ 12.5f, 12.827f, 0.0f });
+		fixedRedDoorD->SetInitialColor(GameColor::Red);
+		fixedRedDoorD->SetCanBeColored(false);
+		fixedRedDoorD->SetFixedColor(true);
+		fixedRedDoorD->SetCanBeActivated(true);
+		AddObject(fixedRedDoorD);
+		startArea->RegisterDoor(fixedRedDoorD);
+		levelManager.RegisterDoor(fixedRedDoorD);
+
+		auto doorB = std::make_shared<PortalDoor>();
+		doorB->Init();
+		doorB->SetDoorId("Level3_Door_B_Variable");
+		doorB->SetOwnerArea(startArea);
+		doorB->SetPlacement({ 20.0f, 12.827f, 0.0f });
+		doorB->SetInitialColor(GameColor::None);
+		doorB->SetCanBeColored(true);
+		doorB->SetFixedColor(false);
+		doorB->SetCanBeActivated(true);
+		AddObject(doorB);
+		startArea->RegisterDoor(doorB);
+		levelManager.RegisterDoor(doorB);
+
+		auto blackBall = std::make_shared<ColorBall>();
+		blackBall->Init();
+		blackBall->SetBallColor(GameColor::Black);
+		blackBall->SetOwnerArea(startArea);
+		blackBall->SetPos({ 23.5f, 12.46f, 0.0f });
+		blackBall->SaveInitialState();
+		AddObject(blackBall);
+		startArea->RegisterBall(blackBall);
+		levelManager.RegisterBall(blackBall);
+
+		auto fixedBlackDoorE = std::make_shared<PortalDoor>();
+		fixedBlackDoorE->SetModelAssetPath("Asset/Data/door2/door2.gltf");
+		fixedBlackDoorE->Init();
+		fixedBlackDoorE->SetDoorId("Level3_Door_E_Black");
+		fixedBlackDoorE->SetOwnerArea(rainbowRoomArea);
+		fixedBlackDoorE->SetPlacement({ -45.0f, 2.0f, 20.0f });
+		fixedBlackDoorE->SetInitialColor(GameColor::Black);
+		fixedBlackDoorE->SetCanBeColored(false);
+		fixedBlackDoorE->SetFixedColor(true);
+		fixedBlackDoorE->SetCanBeActivated(true);
+		AddObject(fixedBlackDoorE);
+		rainbowRoomArea->RegisterDoor(fixedBlackDoorE);
+		levelManager.RegisterDoor(fixedBlackDoorE);
+
+		auto rainbowBall = std::make_shared<ColorBall>();
+		rainbowBall->Init();
+		rainbowBall->SetBallColor(GameColor::Rainbow);
+		rainbowBall->SetOwnerArea(rainbowRoomArea);
+		rainbowBall->SetPos({ -49.0f, 1.633f, 20.0f });
+		rainbowBall->SaveInitialState();
+		AddObject(rainbowBall);
+		rainbowRoomArea->RegisterBall(rainbowBall);
+		levelManager.RegisterBall(rainbowBall);
+
+		auto bridgePlatform1 = std::make_shared<StagePlatform>(
+			Math::Vector3(28.0f, 12.85f, 0.0f),
+			Math::Vector3(3.0f, 0.25f, 2.0f));
+		bridgePlatform1->Init();
+		AddObject(bridgePlatform1);
+
+		auto bridgePlatform2 = std::make_shared<StagePlatform>(
+			Math::Vector3(31.5f, 14.0f, 0.0f),
+			Math::Vector3(3.0f, 0.25f, 2.0f));
+		bridgePlatform2->Init();
+		AddObject(bridgePlatform2);
+
+		auto goalDoor = std::make_shared<RainbowGoalDoor>();
+		goalDoor->Init();
+		goalDoor->SetDoorId("Level3_Door_G_RainbowGoal");
+		goalDoor->SetOwnerArea(startArea);
+		goalDoor->SetPlacement({ 35.0f, 16.188f, 0.0f });
+		goalDoor->SetInitialColor(GameColor::None);
+		goalDoor->SetCanBeColored(false);
+		goalDoor->SetFixedColor(true);
+		goalDoor->SetCanBeActivated(true);
+		AddObject(goalDoor);
+		startArea->RegisterDoor(goalDoor);
+		levelManager.SetGoalDoor(goalDoor);
+	}
 
 	m_camera = std::make_unique<KdCamera>();
 	m_camera->SetProjectionMatrix(55.0f, 500.0f, 0.1f);
@@ -186,8 +562,49 @@ void GameScene::UpdateFollowCamera()
 	if (!player || !m_camera) { return; }
 
 	const float deltaSeconds = Application::Instance().GetDeltaSeconds();
+	const float desiredBackgroundOffset = std::clamp(
+		-(player->GetPos().x - m_backgroundOriginPlayerX) * 0.45f,
+		-35.0f,
+		35.0f);
+	const float backgroundBlend = 1.0f - std::exp(-3.0f * deltaSeconds);
+	m_backgroundOffsetX +=
+		(desiredBackgroundOffset - m_backgroundOffsetX) * backgroundBlend;
+
+	Math::Vector3 desiredMouseOffset = Math::Vector3::Zero;
+
+	POINT mousePosition;
+	RECT clientRect;
+	const HWND windowHandle = Application::Instance().GetWindowHandle();
+	if (windowHandle &&
+		GetCursorPos(&mousePosition) &&
+		ScreenToClient(windowHandle, &mousePosition) &&
+		GetClientRect(windowHandle, &clientRect))
+	{
+		const float clientWidth =
+			static_cast<float>(std::max(1L, clientRect.right - clientRect.left));
+		const float clientHeight =
+			static_cast<float>(std::max(1L, clientRect.bottom - clientRect.top));
+		const float normalizedX = std::clamp(
+			mousePosition.x / clientWidth * 2.0f - 1.0f, -1.0f, 1.0f);
+		const float normalizedY = std::clamp(
+			1.0f - mousePosition.y / clientHeight * 2.0f, -1.0f, 1.0f);
+
+		desiredMouseOffset = {
+			normalizedX * 1.2f,
+			normalizedY * 0.7f,
+			0.0f
+		};
+	}
+
+	const float mouseFollowRate = 5.0f;
+	const float mouseBlend = 1.0f - std::exp(-mouseFollowRate * deltaSeconds);
+	m_mouseCameraOffset = Math::Vector3::Lerp(
+		m_mouseCameraOffset, desiredMouseOffset, mouseBlend);
+
 	const Math::Vector3 desiredTarget =
-		player->GetPos() + Math::Vector3(0.0f, 3.5f, 0.0f);
+		player->GetPos() +
+		Math::Vector3(0.0f, 3.5f, 0.0f) +
+		m_mouseCameraOffset;
 
 	// Exponential smoothing avoids camera jitter while remaining frame-rate independent.
 	const float followRate = 8.0f;

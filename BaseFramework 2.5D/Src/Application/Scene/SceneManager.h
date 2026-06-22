@@ -27,6 +27,7 @@ public :
 	{
 		m_nextSceneType = _nextScene;
 	}
+	void ReloadCurrentScene() { m_reloadCurrentScene = true; }
 
 	// 現在のシーンのオブジェクトリストを取得
 	const std::list<std::shared_ptr<KdGameObject>>& GetObjList();
@@ -51,10 +52,11 @@ private :
 	std::shared_ptr<BaseScene> m_currentScene = nullptr;
 
 	// 現在のシーンの種類を保持している変数
-	SceneType m_currentSceneType = SceneType::Game;
+	SceneType m_currentSceneType = SceneType::Title;
 	
 	// 次のシーンの種類を保持している変数
 	SceneType m_nextSceneType = m_currentSceneType;
+	bool m_reloadCurrentScene = false;
 
 private:
 

@@ -15,7 +15,7 @@ namespace
 void PortalDoor::Init()
 {
 	m_model = std::make_shared<KdModelData>();
-	if (!m_model->Load("Asset/Data/door/door.gltf"))
+	if (!m_model->Load(m_modelAssetPath))
 	{
 		m_model.reset();
 		m_isExpired = true;
@@ -98,7 +98,9 @@ bool PortalDoor::SetColor(GameColor color)
 {
 	if (color != GameColor::None &&
 		color != GameColor::Black &&
-		color != GameColor::White)
+		color != GameColor::White &&
+		color != GameColor::Red &&
+		color != GameColor::Rainbow)
 	{
 		return false;
 	}
@@ -112,7 +114,12 @@ bool PortalDoor::SetColor(GameColor color)
 bool PortalDoor::OnBallHit(GameColor ballColor)
 {
 	if (!m_canBeActivated || !m_canBeColored || m_isFixedColor) { return false; }
-	if (ballColor != GameColor::Black && ballColor != GameColor::White) { return false; }
+	if (ballColor != GameColor::Black &&
+		ballColor != GameColor::White &&
+		ballColor != GameColor::Red)
+	{
+		return false;
+	}
 	return SetColor(ballColor);
 }
 

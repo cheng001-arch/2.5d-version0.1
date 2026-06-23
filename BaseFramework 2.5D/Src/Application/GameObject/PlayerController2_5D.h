@@ -21,6 +21,8 @@ public:
 	void LockZToCurrentArea();
 	void UpdateAnimation();
 	void ResolveHorizontalCollisions();
+	bool TryStartLedgeClimb();
+	void UpdateLedgeClimb();
 
 	void SetCurrentArea(const std::shared_ptr<MapArea>& area) { m_currentArea = area; }
 	std::shared_ptr<MapArea> GetCurrentArea() const { return m_currentArea.lock(); }
@@ -43,8 +45,10 @@ private:
 	{
 		Idle,
 		Walk,
+		Run,
 		Jump,
 		Fall,
+		LedgeClimb,
 	};
 
 	float m_moveSpeed = 5.0f;
@@ -60,10 +64,30 @@ private:
 	BallThrowController m_ballThrowController;
 	std::shared_ptr<KdSquarePolygon> m_idleSprite;
 	std::shared_ptr<KdSquarePolygon> m_walkSprite;
+	std::shared_ptr<KdSquarePolygon> m_runSprite;
 	std::shared_ptr<KdSquarePolygon> m_jumpSprite;
+	std::shared_ptr<KdSquarePolygon> m_ledgeClimbSprite;
 	float m_animationTimer = 0.0f;
 	int m_animationFrame = 0;
 	float m_moveInput = 0.0f;
+	float m_runSpeedMultiplier = 2.0f;
+	float m_doubleTapWindow = 0.28f;
+	float m_leftTapTimer = 0.0f;
+	float m_rightTapTimer = 0.0f;
+	float m_runningDirection = 0.0f;
+	bool m_wasLeftHeld = false;
+	bool m_wasRightHeld = false;
+	bool m_isRunning = false;
+	bool m_isLedgeClimbing = false;
+	Math::Vector3 m_ledgeClimbStart = Math::Vector3::Zero;
+	Math::Vector3 m_ledgeClimbTarget = Math::Vector3::Zero;
+	float m_ledgeClimbElapsed = 0.0f;
+	float m_ledgeClimbFrameDuration = 0.1f;
+	float m_ledgeMinHeight = 0.15f;
+	float m_ledgeMaxHeight = 1.75f;
+	float m_ledgeWallCheckDistance = 1.15f;
+	float m_ledgeInputBufferDuration = 0.30f;
+	float m_ledgeInputBufferTimer = 0.0f;
 	AnimationState m_animationState = AnimationState::Idle;
 	float m_collisionRadius = 0.4f;
 	bool m_controlEnabled = true;

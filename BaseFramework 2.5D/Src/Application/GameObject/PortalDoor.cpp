@@ -56,6 +56,37 @@ void PortalDoor::DrawLit()
 	KdShaderManager::Instance().m_StandardShader.DrawModel(*m_model, m_mWorld);
 }
 
+void PortalDoor::DrawUnLit()
+{
+	if (!m_hasLockedVisual || !m_lockedCross) { return; }
+
+	Math::Matrix crossMatrix =
+		Math::Matrix::CreateTranslation(
+			m_centerPosition.x - 0.42f,
+			m_centerPosition.y,
+			m_centerPosition.z - 1.04f);
+	KdShaderManager::Instance().m_StandardShader.DrawPolygon(
+		*m_lockedCross, crossMatrix);
+}
+
+void PortalDoor::SetLockedVisual(bool locked)
+{
+	m_hasLockedVisual = locked;
+	if (!locked)
+	{
+		m_lockedCross.reset();
+		return;
+	}
+
+	if (!m_lockedCross)
+	{
+		m_lockedCross = std::make_shared<KdSquarePolygon>(
+			"Asset/Textures/door/locked_cross.png");
+		m_lockedCross->SetScale({ 0.72f, 1.28f });
+		m_lockedCross->SetPivot(KdSquarePolygon::PivotType::Center_Middle);
+	}
+}
+
 void PortalDoor::SetPlacement(const Math::Vector3& centerPosition)
 {
 	m_centerPosition = centerPosition;
@@ -100,6 +131,10 @@ bool PortalDoor::SetColor(GameColor color)
 		color != GameColor::Black &&
 		color != GameColor::White &&
 		color != GameColor::Red &&
+		color != GameColor::Blue &&
+		color != GameColor::Yellow &&
+		color != GameColor::Green &&
+		color != GameColor::Purple &&
 		color != GameColor::Rainbow)
 	{
 		return false;
@@ -114,9 +149,18 @@ bool PortalDoor::SetColor(GameColor color)
 bool PortalDoor::OnBallHit(GameColor ballColor)
 {
 	if (!m_canBeActivated || !m_canBeColored || m_isFixedColor) { return false; }
+	if (std::find(
+		m_blockedBallColors.begin(),
+		m_blockedBallColors.end(),
+		ballColor) != m_blockedBallColors.end())
+	{
+		return false;
+	}
 	if (ballColor != GameColor::Black &&
 		ballColor != GameColor::White &&
-		ballColor != GameColor::Red)
+		ballColor != GameColor::Red &&
+		ballColor != GameColor::Blue &&
+		ballColor != GameColor::Yellow)
 	{
 		return false;
 	}
@@ -160,6 +204,11 @@ void PortalDoor::DetectPlayerEntry()
 			if (std::abs(playerPosition.x - doorCenter.x) < 0.01f)
 			{
 				entrySide = player->GetFacingDirection() < 0.0f ? 1.0f : -1.0f;
+			}
+			if (m_allowedEntrySide != 0.0f &&
+				entrySide != m_allowedEntrySide)
+			{
+				continue;
 			}
 			PortalTeleportService::Instance().TeleportPlayer(
 				player, self, linkedDoor, entrySide);

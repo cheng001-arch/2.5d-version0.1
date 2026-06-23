@@ -65,3 +65,4 @@ protected:
 	float m_focusForeRange = 0.0f;
 	float m_focusBackRange = 2000.0f;
 };
+	

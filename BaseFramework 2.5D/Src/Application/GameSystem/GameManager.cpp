@@ -25,7 +25,10 @@ void GameManager::CompleteLevel()
 void GameManager::LoadNextLevel()
 {
 	auto& level = LevelManager::Instance();
-	level.SetCurrentLevelId(level.GetCurrentLevelId() + 1);
+	constexpr int LevelCount = 5;
+	const int nextLevelId =
+		(level.GetCurrentLevelId() + 1) % LevelCount;
+	level.SetCurrentLevelId(nextLevelId);
 	m_isLevelComplete = false;
 	m_isPaused = false;
 	SceneManager::Instance().ReloadCurrentScene();

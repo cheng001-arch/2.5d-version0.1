@@ -1,6 +1,7 @@
 #pragma once
 
 class ColorBall;
+class BallStorageDevice;
 class PlayerCarrySlot;
 
 class PlayerInteractor
@@ -17,6 +18,7 @@ public:
 private:
 	float m_interactRange = 1.5f;
 	std::weak_ptr<ColorBall> m_currentInteractable;
+	std::weak_ptr<BallStorageDevice> m_currentStorageDevice;
 	KdGameObject* m_owner = nullptr;
 	PlayerCarrySlot* m_carrySlot = nullptr;
 };

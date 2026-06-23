@@ -35,7 +35,7 @@ void RainbowGoalDoor::Update()
 	for (auto& object : SceneManager::Instance().GetObjList())
 	{
 		auto player = std::dynamic_pointer_cast<PlayerController2_5D>(object);
-		if (!player || player->GetCurrentArea() != GetOwnerArea()) { continue; }
+		if (!player) { continue; }
 
 		const Math::Vector3 position = player->GetPos();
 		if (std::abs(position.x - center.x) <= m_triggerHalfWidth &&

@@ -28,12 +28,27 @@ void PlayerController2_5D::Init()
 	m_walkSprite->SetScale({ 1.08f, 1.8f });
 	m_walkSprite->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
 
+	m_runSprite = std::make_shared<KdSquarePolygon>(
+		"Asset/Textures/player/player run.png");
+	m_runSprite->SetSplit(8, 1);
+	m_runSprite->SetUVRect(0);
+	m_runSprite->SetScale({ 1.08f, 1.8f });
+	m_runSprite->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
+
 	m_jumpSprite = std::make_shared<KdSquarePolygon>(
 		"Asset/Textures/player/player new jump.png");
 	m_jumpSprite->SetSplit(6, 1);
 	m_jumpSprite->SetUVRect(0);
 	m_jumpSprite->SetScale({ 1.08f, 1.8f });
 	m_jumpSprite->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
+
+	m_ledgeClimbSprite = std::make_shared<KdSquarePolygon>(
+		"Asset/Textures/player/player ledge climb.png");
+	m_ledgeClimbSprite->SetSplit(5, 1);
+	m_ledgeClimbSprite->SetUVRect(0);
+	m_ledgeClimbSprite->SetScale({ 1.08f, 1.8f });
+	m_ledgeClimbSprite->SetPivot(
+		KdSquarePolygon::PivotType::Center_Bottom);
 
 	m_pCollider = std::make_unique<KdCollider>();
 	m_pCollider->RegisterCollisionShape(
@@ -48,15 +63,38 @@ void PlayerController2_5D::Update()
 	auto managerArea = AreaManager::Instance().GetCurrentArea();
 	if (managerArea) { m_currentArea = managerArea; }
 
+	if (m_isLedgeClimbing)
+	{
+		UpdateLedgeClimb();
+		m_carrySlot.UpdateCarryPosition(GetPos(), m_facingDirection);
+		return;
+	}
+
 	if (!m_controlEnabled)
 	{
 		m_carrySlot.UpdateCarryPosition(GetPos(), m_facingDirection);
 		return;
 	}
 
+	const float deltaSeconds = Application::Instance().GetDeltaSeconds();
+	if (GetAsyncKeyState('F') & 0x0001)
+	{
+		m_ledgeInputBufferTimer = m_ledgeInputBufferDuration;
+	}
+	else
+	{
+		m_ledgeInputBufferTimer = std::max(
+			0.0f, m_ledgeInputBufferTimer - deltaSeconds);
+	}
+
 	MoveLeftRight();
 	ResolveHorizontalCollisions();
 	m_groundChecker.CheckGround();
+	if (TryStartLedgeClimb())
+	{
+		m_carrySlot.UpdateCarryPosition(GetPos(), m_facingDirection);
+		return;
+	}
 	Jump();
 	Crouch();
 	ApplyGravity();
@@ -86,9 +124,15 @@ void PlayerController2_5D::DrawUnLit()
 	case AnimationState::Walk:
 		currentSprite = m_walkSprite;
 		break;
+	case AnimationState::Run:
+		currentSprite = m_runSprite;
+		break;
 	case AnimationState::Jump:
 	case AnimationState::Fall:
 		currentSprite = m_jumpSprite;
+		break;
+	case AnimationState::LedgeClimb:
+		currentSprite = m_ledgeClimbSprite;
 		break;
 	case AnimationState::Idle:
 	default:
@@ -107,46 +151,127 @@ void PlayerController2_5D::DrawUnLit()
 
 void PlayerController2_5D::MoveLeftRight()
 {
+	const float deltaSeconds = Application::Instance().GetDeltaSeconds();
+	m_leftTapTimer = std::max(0.0f, m_leftTapTimer - deltaSeconds);
+	m_rightTapTimer = std::max(0.0f, m_rightTapTimer - deltaSeconds);
+
+	const bool leftHeld = (GetAsyncKeyState('A') & 0x8000) != 0;
+	const bool rightHeld = (GetAsyncKeyState('D') & 0x8000) != 0;
+	const bool leftPressed = leftHeld && !m_wasLeftHeld;
+	const bool rightPressed = rightHeld && !m_wasRightHeld;
+
+	if (leftPressed)
+	{
+		if (m_leftTapTimer > 0.0f)
+		{
+			m_isRunning = true;
+			m_runningDirection = -1.0f;
+			m_leftTapTimer = 0.0f;
+		}
+		else
+		{
+			m_leftTapTimer = m_doubleTapWindow;
+		}
+	}
+
+	if (rightPressed)
+	{
+		if (m_rightTapTimer > 0.0f)
+		{
+			m_isRunning = true;
+			m_runningDirection = 1.0f;
+			m_rightTapTimer = 0.0f;
+		}
+		else
+		{
+			m_rightTapTimer = m_doubleTapWindow;
+		}
+	}
+
+	if (m_isRunning)
+	{
+		const bool runningKeyHeld =
+			m_runningDirection < 0.0f ? leftHeld : rightHeld;
+		const bool oppositeKeyHeld =
+			m_runningDirection < 0.0f ? rightHeld : leftHeld;
+		if (!runningKeyHeld || oppositeKeyHeld)
+		{
+			m_isRunning = false;
+			m_runningDirection = 0.0f;
+		}
+	}
+
 	m_moveInput = 0.0f;
-	if (GetAsyncKeyState('A') & 0x8000) { m_moveInput -= 1.0f; }
-	if (GetAsyncKeyState('D') & 0x8000) { m_moveInput += 1.0f; }
+	if (leftHeld) { m_moveInput -= 1.0f; }
+	if (rightHeld) { m_moveInput += 1.0f; }
 
 	if (m_moveInput != 0.0f) { m_facingDirection = m_moveInput; }
 
-	Math::Vector3 position = GetPos();
-	position.x += m_moveInput * m_moveSpeed * Application::Instance().GetDeltaSeconds();
-	SetPos(position);
+	const float movementSpeed =
+		m_moveSpeed * (m_isRunning ? m_runSpeedMultiplier : 1.0f);
+	const float horizontalDistance =
+		m_moveInput * movementSpeed * deltaSeconds;
+	const int movementSteps = std::max(
+		1,
+		static_cast<int>(
+			std::ceil(std::abs(horizontalDistance) / 0.12f)));
+	const float stepDistance = horizontalDistance / movementSteps;
+
+	// Resolve collision for every short movement segment. This prevents a
+	// running player from crossing a thin wall/corner between two frames.
+	for (int step = 0; step < movementSteps; ++step)
+	{
+		Math::Vector3 position = GetPos();
+		position.x += stepDistance;
+		SetPos(position);
+		ResolveHorizontalCollisions();
+	}
+
+	m_wasLeftHeld = leftHeld;
+	m_wasRightHeld = rightHeld;
 }
 
 void PlayerController2_5D::ResolveHorizontalCollisions()
 {
 	if (m_moveInput == 0.0f) { return; }
 
-	// The player's origin is at the feet. Use a sphere around the body to
-	// collide against the map mesh and apply only horizontal pushback.
-	for (int pass = 0; pass < 3; ++pass)
+	// Two spheres approximate a vertical capsule. The old single sphere left
+	// the feet/lower body unprotected when approaching a block corner.
+	constexpr float bodySphereHeights[] = { 0.45f, 1.25f };
+	for (int pass = 0; pass < 4; ++pass)
 	{
-		const Math::Vector3 bodyCenter = GetPos() + Math::Vector3(0.0f, 0.9f, 0.0f);
-		const KdCollider::SphereInfo bodySphere(
-			KdCollider::TypeBump, bodyCenter, m_collisionRadius);
-
 		float horizontalCorrection = 0.0f;
-		for (auto& object : SceneManager::Instance().GetObjList())
+		for (float sphereHeight : bodySphereHeights)
 		{
-			if (!object || object.get() == this) { continue; }
-			if (std::dynamic_pointer_cast<PortalDoor>(object)) { continue; }
+			const Math::Vector3 bodyCenter =
+				GetPos() + Math::Vector3(0.0f, sphereHeight, 0.0f);
+			const KdCollider::SphereInfo bodySphere(
+				KdCollider::TypeBump, bodyCenter, m_collisionRadius);
 
-			std::list<KdCollider::CollisionResult> results;
-			if (!object->Intersects(bodySphere, &results)) { continue; }
-
-			for (const auto& result : results)
+			for (auto& object : SceneManager::Instance().GetObjList())
 			{
-				// Ground and ceiling contacts are handled by vertical movement.
-				if (std::abs(result.m_hitDir.x) <= std::abs(result.m_hitDir.y))
+				if (!object || object.get() == this) { continue; }
+				auto portalDoor = std::dynamic_pointer_cast<PortalDoor>(object);
+				if (portalDoor && !portalDoor->IsSolidForPlayer()) { continue; }
+
+				std::list<KdCollider::CollisionResult> results;
+				if (!object->Intersects(bodySphere, &results)) { continue; }
+
+				for (const auto& result : results)
 				{
-					continue;
+					const float correctionX =
+						result.m_hitDir.x * result.m_overlapDistance;
+
+					// Flat ground has no horizontal correction. At an edge the
+					// push direction is diagonal; keep its X component when it
+					// opposes movement instead of misclassifying it as ground.
+					if (std::abs(correctionX) < 0.00001f ||
+						correctionX * m_moveInput >= 0.0f)
+					{
+						continue;
+					}
+					horizontalCorrection += correctionX;
 				}
-				horizontalCorrection += result.m_hitDir.x * result.m_overlapDistance;
 			}
 		}
 
@@ -160,6 +285,12 @@ void PlayerController2_5D::ResolveHorizontalCollisions()
 
 void PlayerController2_5D::UpdateAnimation()
 {
+	if (m_isLedgeClimbing)
+	{
+		m_animationState = AnimationState::LedgeClimb;
+		return;
+	}
+
 	AnimationState desiredState = AnimationState::Idle;
 	if (m_verticalVelocity > 0.01f)
 	{
@@ -171,7 +302,9 @@ void PlayerController2_5D::UpdateAnimation()
 	}
 	else if (m_moveInput != 0.0f)
 	{
-		desiredState = AnimationState::Walk;
+		desiredState = m_isRunning
+			? AnimationState::Run
+			: AnimationState::Walk;
 	}
 
 	if (desiredState != m_animationState)
@@ -183,6 +316,10 @@ void PlayerController2_5D::UpdateAnimation()
 		if (m_animationState == AnimationState::Walk && m_walkSprite)
 		{
 			m_walkSprite->SetUVRect(0);
+		}
+		else if (m_animationState == AnimationState::Run && m_runSprite)
+		{
+			m_runSprite->SetUVRect(0);
 		}
 		else if ((m_animationState == AnimationState::Jump ||
 			m_animationState == AnimationState::Fall) && m_jumpSprite)
@@ -203,10 +340,12 @@ void PlayerController2_5D::UpdateAnimation()
 	}
 
 	const float frameDuration =
-		m_animationState == AnimationState::Idle ? 0.1f : 0.08f;
+		m_animationState == AnimationState::Idle ? 0.1f :
+		m_animationState == AnimationState::Run ? 0.06f : 0.08f;
 	const int frameCount =
 		m_animationState == AnimationState::Idle ? 10 :
-		m_animationState == AnimationState::Walk ? 8 : 6;
+		(m_animationState == AnimationState::Walk ||
+			m_animationState == AnimationState::Run) ? 8 : 6;
 	m_animationTimer += Application::Instance().GetDeltaSeconds();
 
 	while (m_animationTimer >= frameDuration)
@@ -225,6 +364,10 @@ void PlayerController2_5D::UpdateAnimation()
 		{
 			m_walkSprite->SetUVRect(m_animationFrame);
 		}
+		else if (m_animationState == AnimationState::Run && m_runSprite)
+		{
+			m_runSprite->SetUVRect(m_animationFrame);
+		}
 		else if (m_animationState == AnimationState::Jump && m_jumpSprite)
 		{
 			m_jumpSprite->SetUVRect(m_animationFrame);
@@ -234,6 +377,169 @@ void PlayerController2_5D::UpdateAnimation()
 			m_idleSprite->SetUVRect(m_animationFrame);
 		}
 	}
+}
+
+bool PlayerController2_5D::TryStartLedgeClimb()
+{
+	if (m_groundChecker.IsGrounded() ||
+		m_ledgeInputBufferTimer <= 0.0f)
+	{
+		return false;
+	}
+
+	const float facing = m_facingDirection < 0.0f ? -1.0f : 1.0f;
+	const Math::Vector3 playerPosition = GetPos();
+
+	std::shared_ptr<KdGameObject> wallObject;
+	KdCollider::CollisionResult nearestWallHit;
+	float nearestWallDistance = FLT_MAX;
+
+	// Probe at two body heights. This makes grabbing reliable near the apex
+	// and while beginning to fall, instead of requiring one exact pose/frame.
+	constexpr float wallProbeHeights[] = { 0.55f, 1.05f };
+	for (float probeHeight : wallProbeHeights)
+	{
+		const Math::Vector3 wallRayStart =
+			playerPosition + Math::Vector3(0.0f, probeHeight, 0.0f);
+		const KdCollider::RayInfo wallRay(
+			KdCollider::TypeBump,
+			wallRayStart,
+			Math::Vector3(facing, 0.0f, 0.0f),
+			m_ledgeWallCheckDistance);
+
+		for (auto& object : SceneManager::Instance().GetObjList())
+		{
+			if (!object || object.get() == this) { continue; }
+			if (std::dynamic_pointer_cast<PortalDoor>(object)) { continue; }
+
+			std::list<KdCollider::CollisionResult> results;
+			if (!object->Intersects(wallRay, &results)) { continue; }
+
+			for (const auto& result : results)
+			{
+				const float distance =
+					(result.m_hitPos - wallRayStart).Length();
+				if (distance < nearestWallDistance &&
+					std::abs(result.m_hitNDir.x) > 0.35f)
+				{
+					nearestWallDistance = distance;
+					nearestWallHit = result;
+					wallObject = object;
+				}
+			}
+		}
+	}
+
+	if (!wallObject) { return false; }
+
+	// Cast down just beyond the wall face to find the walkable top.
+	const float topProbeX =
+		nearestWallHit.m_hitPos.x + facing * (m_collisionRadius + 0.12f);
+	const Math::Vector3 topRayStart(
+		topProbeX,
+		playerPosition.y + m_ledgeMaxHeight + 0.35f,
+		playerPosition.z);
+	const KdCollider::RayInfo topRay(
+		KdCollider::TypeGround,
+		topRayStart,
+		Math::Vector3::Down,
+		m_ledgeMaxHeight + 0.7f);
+
+	std::list<KdCollider::CollisionResult> topResults;
+	if (!wallObject->Intersects(topRay, &topResults)) { return false; }
+
+	float platformTopY = -FLT_MAX;
+	for (const auto& result : topResults)
+	{
+		if (result.m_hitPos.y > platformTopY)
+		{
+			platformTopY = result.m_hitPos.y;
+		}
+	}
+	if (platformTopY == -FLT_MAX) { return false; }
+
+	const float climbHeight = platformTopY - playerPosition.y;
+	if (climbHeight < m_ledgeMinHeight ||
+		climbHeight > m_ledgeMaxHeight)
+	{
+		return false;
+	}
+
+	const Math::Vector3 targetPosition(
+		topProbeX,
+		platformTopY,
+		playerPosition.z);
+
+	// Ensure the upper body has room at the destination.
+	const KdCollider::SphereInfo clearanceSphere(
+		KdCollider::TypeBump,
+		targetPosition + Math::Vector3(0.0f, 0.95f, 0.0f),
+		m_collisionRadius * 0.9f);
+	for (auto& object : SceneManager::Instance().GetObjList())
+	{
+		if (!object || object.get() == this || object == wallObject) { continue; }
+		if (std::dynamic_pointer_cast<PortalDoor>(object)) { continue; }
+		if (object->Intersects(clearanceSphere, nullptr)) { return false; }
+	}
+
+	m_isLedgeClimbing = true;
+	m_ledgeInputBufferTimer = 0.0f;
+	m_isRunning = false;
+	m_runningDirection = 0.0f;
+	m_moveInput = 0.0f;
+	m_verticalVelocity = 0.0f;
+	m_ledgeClimbElapsed = 0.0f;
+	m_ledgeClimbStart = {
+		nearestWallHit.m_hitPos.x -
+			facing * (m_collisionRadius + 0.04f),
+		std::min(playerPosition.y, platformTopY - 0.85f),
+		playerPosition.z
+	};
+	m_ledgeClimbTarget = targetPosition;
+	SetPos(m_ledgeClimbStart);
+	m_animationState = AnimationState::LedgeClimb;
+	m_animationFrame = 0;
+	m_animationTimer = 0.0f;
+	if (m_ledgeClimbSprite) { m_ledgeClimbSprite->SetUVRect(0); }
+	return true;
+}
+
+void PlayerController2_5D::UpdateLedgeClimb()
+{
+	constexpr int frameCount = 5;
+	const float totalDuration =
+		frameCount * m_ledgeClimbFrameDuration;
+	m_ledgeClimbElapsed += Application::Instance().GetDeltaSeconds();
+
+	m_animationFrame = std::min(
+		static_cast<int>(
+			m_ledgeClimbElapsed / m_ledgeClimbFrameDuration),
+		frameCount - 1);
+	if (m_ledgeClimbSprite)
+	{
+		m_ledgeClimbSprite->SetUVRect(m_animationFrame);
+	}
+
+	const float normalizedTime = std::clamp(
+		m_ledgeClimbElapsed / totalDuration, 0.0f, 1.0f);
+	const float smoothTime =
+		normalizedTime * normalizedTime *
+		(3.0f - 2.0f * normalizedTime);
+	SetPos(Math::Vector3::Lerp(
+		m_ledgeClimbStart,
+		m_ledgeClimbTarget,
+		smoothTime));
+	LockZToCurrentArea();
+
+	if (m_ledgeClimbElapsed < totalDuration) { return; }
+
+	SetPos(m_ledgeClimbTarget);
+	m_isLedgeClimbing = false;
+	m_animationState = AnimationState::Idle;
+	m_animationFrame = 0;
+	m_animationTimer = 0.0f;
+	m_groundChecker.CheckGround();
+	if (m_idleSprite) { m_idleSprite->SetUVRect(0); }
 }
 
 void PlayerController2_5D::Jump()
@@ -294,6 +600,12 @@ void PlayerController2_5D::ApplyTeleport(
 	m_facingDirection = facingDirection < 0.0f ? -1.0f : 1.0f;
 	m_verticalVelocity = 0.0f;
 	m_moveInput = 0.0f;
+	m_isLedgeClimbing = false;
+	m_ledgeInputBufferTimer = 0.0f;
+	m_isRunning = false;
+	m_runningDirection = 0.0f;
+	m_leftTapTimer = 0.0f;
+	m_rightTapTimer = 0.0f;
 	m_groundChecker.CheckGround();
 
 	auto currentBall = m_carrySlot.GetCurrentBall();

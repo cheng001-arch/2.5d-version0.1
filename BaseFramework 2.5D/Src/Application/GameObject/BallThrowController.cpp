@@ -47,8 +47,24 @@ void BallThrowController::ReleaseThrow(
 	const float charge = GetChargeRatio();
 	const float horizontalSpeed =
 		m_minHorizontalSpeed + (m_maxHorizontalSpeed - m_minHorizontalSpeed) * charge;
-	const float verticalSpeed =
-		m_minVerticalSpeed + (m_maxVerticalSpeed - m_minVerticalSpeed) * charge;
+	float verticalSpeed = 0.0f;
+	if (m_chargeTime <= m_tapChargeThreshold)
+	{
+		// Projectile apex height is proportional to velocity squared.
+		// Multiplying by sqrt(0.5) makes a quick tap reach half the old height.
+		verticalSpeed = m_minVerticalSpeed * std::sqrt(0.5f);
+	}
+	else
+	{
+		const float heldCharge = std::clamp(
+			(m_chargeTime - m_tapChargeThreshold) /
+			(m_maxChargeTime - m_tapChargeThreshold),
+			0.0f,
+			1.0f);
+		verticalSpeed =
+			m_minVerticalSpeed +
+			(m_maxVerticalSpeed - m_minVerticalSpeed) * heldCharge;
+	}
 	const float maxDistance =
 		m_minThrowDistance + (m_maxThrowDistance - m_minThrowDistance) * charge;
 

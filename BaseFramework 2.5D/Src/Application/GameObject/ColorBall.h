@@ -26,22 +26,29 @@ public:
 	void ResetState();
 
 	bool IsHeld() const { return m_isHeld; }
+	bool IsStored() const { return m_isStored; }
 	bool IsFlying() const { return m_isFlying; }
-	bool IsConsumed() const { return m_isConsumed; }
+	bool IsConsumed() const { return m_isConsumed || m_isAbandonedGone; }
 	bool IsModelLoaded() const { return m_model != nullptr; }
 	void SetHeldPosition(const Math::Vector3& position);
 	void SnapHeldPosition(const Math::Vector3& position);
 	void DropAt(const Math::Vector3& position);
+	void StoreAt(const Math::Vector3& position);
+	void ReleaseFromStorage();
 
 private:
 	std::shared_ptr<KdModelData> m_model;
 	GameColor m_ballColor = GameColor::None;
 	std::weak_ptr<MapArea> m_ownerArea;
 	bool m_isHeld = false;
+	bool m_isStored = false;
 	bool m_isFlying = false;
 	bool m_isPhysicsActive = false;
 	bool m_isRolling = false;
 	bool m_isConsumed = false;
+	bool m_isAbandonedGone = false;
+	bool m_hasBeenMoved = false;
+	bool m_isAbandonCountdownActive = false;
 	Math::Vector3 m_initialPosition = Math::Vector3::Zero;
 	std::weak_ptr<MapArea> m_initialArea;
 	Math::Vector3 m_flyDirection = Math::Vector3::Zero;
@@ -55,6 +62,10 @@ private:
 	float m_flightTime = 0.0f;
 	float m_portalRespawnDelay = 0.25f;
 	float m_portalRespawnTimer = 0.0f;
+	float m_abandonTimer = 0.0f;
+	float m_abandonBlinkStartTime = 5.0f;
+	float m_abandonDisappearTime = 10.0f;
+	float m_abandonBlinkInterval = 0.12f;
 	float m_visualTime = 0.0f;
 	float m_restSpeedThreshold = 0.35f;
 	float m_landingHorizontalRetention = 0.45f;

@@ -89,6 +89,18 @@ void KdDebugGUI::GuiProcess()
 			SceneManager::Instance().ReloadCurrentScene();
 		}
 
+		if (ImGui::Button("Load Level 4", ImVec2(-FLT_MIN, 0.0f)))
+		{
+			levelManager.SetCurrentLevelId(3);
+			SceneManager::Instance().ReloadCurrentScene();
+		}
+
+		if (ImGui::Button("Load Level 5", ImVec2(-FLT_MIN, 0.0f)))
+		{
+			levelManager.SetCurrentLevelId(4);
+			SceneManager::Instance().ReloadCurrentScene();
+		}
+
 		if (ImGui::Button("Reload Current Level"))
 		{
 			SceneManager::Instance().ReloadCurrentScene();

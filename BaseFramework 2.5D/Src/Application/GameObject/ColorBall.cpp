@@ -59,6 +59,20 @@ void ColorBall::Update()
 		}
 		return;
 	}
+	if (m_isAbandonedGone) { return; }
+	if (m_isStored) { return; }
+
+	if (m_isAbandonCountdownActive && !m_isHeld)
+	{
+		m_abandonTimer += deltaSeconds;
+		if (m_abandonTimer >= m_abandonDisappearTime)
+		{
+			// An abandoned ball returns to its level-defined spawn point
+			// instead of remaining permanently removed from the level.
+			ResetState();
+			return;
+		}
+	}
 	if (!m_isHeld && GetPos().y < LevelManager::Instance().GetVoidY())
 	{
 		ResetState();
@@ -100,18 +114,20 @@ void ColorBall::Update()
 		const KdCollider::SphereInfo flyingSphere(
 			KdCollider::TypeBump, nextPosition, m_collisionRadius);
 
-		// Only a thrown projectile colors a door. A ball falling after hitting
-		// a wall remains physical, but no longer behaves as a projectile.
-		if (m_isFlying)
+		// A thrown ball may still reach a door after landing and rolling.
+		// Stationary balls do not color doors automatically.
+		if (m_isFlying || m_isRolling)
 		{
 			for (auto& object : SceneManager::Instance().GetObjList())
 			{
 				auto door = std::dynamic_pointer_cast<PortalDoor>(object);
 				if (door && door->Intersects(flyingSphere, nullptr))
 				{
-					door->OnBallHit(m_ballColor);
-					OnHitPortalDoor(door);
-					return;
+					if (door->OnBallHit(m_ballColor))
+					{
+						OnHitPortalDoor(door);
+						return;
+					}
 				}
 			}
 		}
@@ -178,6 +194,11 @@ void ColorBall::Update()
 				m_isRolling = false;
 				m_isPhysicsActive = false;
 				m_flyVelocity = Math::Vector3::Zero;
+				if (m_hasBeenMoved)
+				{
+					m_isAbandonCountdownActive = true;
+					m_abandonTimer = 0.0f;
+				}
 			}
 			else
 			{
@@ -199,13 +220,25 @@ void ColorBall::Update()
 
 void ColorBall::GenerateDepthMapFromLight()
 {
-	if (!m_model || m_isConsumed) { return; }
+	if (!m_model || IsConsumed()) { return; }
+	if (m_isAbandonCountdownActive &&
+		m_abandonTimer >= m_abandonBlinkStartTime &&
+		static_cast<int>(m_abandonTimer / m_abandonBlinkInterval) % 2 != 0)
+	{
+		return;
+	}
 	KdShaderManager::Instance().m_StandardShader.DrawModel(*m_model, m_mWorld);
 }
 
 void ColorBall::DrawLit()
 {
-	if (!m_model || m_isConsumed) { return; }
+	if (!m_model || IsConsumed()) { return; }
+	if (m_isAbandonCountdownActive &&
+		m_abandonTimer >= m_abandonBlinkStartTime &&
+		static_cast<int>(m_abandonTimer / m_abandonBlinkInterval) % 2 != 0)
+	{
+		return;
+	}
 	KdShaderManager::Instance().m_StandardShader.DrawModel(*m_model, m_mWorld);
 }
 
@@ -218,10 +251,14 @@ void ColorBall::SaveInitialState()
 void ColorBall::OnPickedUp()
 {
 	if (m_isConsumed) { return; }
+	m_isStored = false;
 	m_isHeld = true;
 	m_isFlying = false;
 	m_isPhysicsActive = false;
 	m_isRolling = false;
+	m_hasBeenMoved = true;
+	m_isAbandonCountdownActive = false;
+	m_abandonTimer = 0.0f;
 	m_heldTargetPosition = GetPos();
 	m_carryVelocity = Math::Vector3::Zero;
 }
@@ -229,9 +266,13 @@ void ColorBall::OnPickedUp()
 void ColorBall::OnThrown(const Math::Vector3& direction, float speed, float maxDistance)
 {
 	m_isHeld = false;
+	m_isStored = false;
 	m_isFlying = speed > 0.0f && maxDistance > 0.0f;
 	m_isPhysicsActive = m_isFlying;
 	m_isRolling = false;
+	m_hasBeenMoved = true;
+	m_isAbandonCountdownActive = false;
+	m_abandonTimer = 0.0f;
 	m_carryVelocity = Math::Vector3::Zero;
 	m_flyDirection = direction;
 	if (m_flyDirection.LengthSquared() > 0.0f) { m_flyDirection.Normalize(); }
@@ -247,9 +288,13 @@ void ColorBall::OnThrownArc(
 	const Math::Vector3& launchVelocity, float gravity, float maxDistance)
 {
 	m_isHeld = false;
+	m_isStored = false;
 	m_isFlying = launchVelocity.LengthSquared() > 0.0f && maxDistance > 0.0f;
 	m_isPhysicsActive = m_isFlying;
 	m_isRolling = false;
+	m_hasBeenMoved = true;
+	m_isAbandonCountdownActive = false;
+	m_abandonTimer = 0.0f;
 	m_carryVelocity = Math::Vector3::Zero;
 	m_flyVelocity = launchVelocity;
 	m_flightGravity = std::max(0.0f, gravity);
@@ -264,7 +309,10 @@ void ColorBall::OnHitPortalDoor(const std::shared_ptr<KdGameObject>&)
 	m_isPhysicsActive = false;
 	m_isRolling = false;
 	m_isHeld = false;
+	m_isStored = false;
 	m_isConsumed = true;
+	m_isAbandonCountdownActive = false;
+	m_abandonTimer = 0.0f;
 	m_portalRespawnTimer = m_portalRespawnDelay;
 	m_flyVelocity = Math::Vector3::Zero;
 	m_carryVelocity = Math::Vector3::Zero;
@@ -274,14 +322,20 @@ void ColorBall::ResetState()
 {
 	m_ownerArea = m_initialArea;
 	m_isHeld = false;
+	m_isStored = false;
 	m_isFlying = false;
 	m_isPhysicsActive = false;
 	m_isRolling = false;
 	m_isConsumed = false;
+	m_isAbandonedGone = false;
+	m_hasBeenMoved = false;
+	m_isAbandonCountdownActive = false;
 	m_portalRespawnTimer = 0.0f;
+	m_abandonTimer = 0.0f;
 	m_flyDirection = Math::Vector3::Zero;
 	m_flyVelocity = Math::Vector3::Zero;
 	m_carryVelocity = Math::Vector3::Zero;
+	if (m_pCollider) { m_pCollider->SetEnable("ColorBall", true); }
 	SetPos(m_initialPosition);
 }
 
@@ -304,15 +358,43 @@ void ColorBall::SnapHeldPosition(const Math::Vector3& position)
 
 void ColorBall::DropAt(const Math::Vector3& position)
 {
+	m_isStored = false;
 	m_isHeld = false;
 	m_isFlying = false;
 	m_isPhysicsActive = true;
 	m_isRolling = false;
+	m_hasBeenMoved = true;
+	m_isAbandonCountdownActive = false;
+	m_abandonTimer = 0.0f;
 	m_flyVelocity = Math::Vector3::Zero;
 	m_flightGravity = 18.0f;
 	m_flightTime = 0.12f;
 	m_carryVelocity = Math::Vector3::Zero;
 	SetPos(position);
+}
+
+void ColorBall::StoreAt(const Math::Vector3& position)
+{
+	m_isStored = true;
+	m_isHeld = false;
+	m_isFlying = false;
+	m_isPhysicsActive = false;
+	m_isRolling = false;
+	m_isConsumed = false;
+	m_isAbandonedGone = false;
+	m_hasBeenMoved = true;
+	m_isAbandonCountdownActive = false;
+	m_abandonTimer = 0.0f;
+	m_flyVelocity = Math::Vector3::Zero;
+	m_carryVelocity = Math::Vector3::Zero;
+	if (m_pCollider) { m_pCollider->SetEnable("ColorBall", false); }
+	SetPos(position);
+}
+
+void ColorBall::ReleaseFromStorage()
+{
+	m_isStored = false;
+	if (m_pCollider) { m_pCollider->SetEnable("ColorBall", true); }
 }
 
 void ColorBall::SetBallColor(GameColor color)
@@ -332,6 +414,14 @@ void ColorBall::SetBallColor(GameColor color)
 	else if (color == GameColor::Red)
 	{
 		visualColor = { 1.0f, 0.035f, 0.025f, 1.0f };
+	}
+	else if (color == GameColor::Blue)
+	{
+		visualColor = { 0.03f, 0.22f, 1.0f, 1.0f };
+	}
+	else if (color == GameColor::Yellow)
+	{
+		visualColor = { 1.0f, 0.82f, 0.04f, 1.0f };
 	}
 	else if (color == GameColor::Rainbow)
 	{

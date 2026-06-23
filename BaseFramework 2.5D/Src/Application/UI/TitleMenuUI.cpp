@@ -1,11 +1,11 @@
 #include "TitleMenuUI.h"
-#include "../GameSystem/GameManager.h"
+#include "../GameObject/LevelTransitionController.h"
 #include "../GameSystem/LevelManager.h"
 #include "../main.h"
 
 void TitleMenuUI::Init()
 {
-	m_background = std::make_shared<KdTexture>("Asset/Textures/title/beijing.png");
+	m_background = std::make_shared<KdTexture>("Asset/Textures/title/beijing3.png");
 	m_title = std::make_shared<KdTexture>("Asset/Textures/title/title.png");
 	m_startButton.Load("Asset/Textures/title/start.png");
 	m_settingButton.Load("Asset/Textures/title/setting.png");
@@ -18,6 +18,8 @@ void TitleMenuUI::Init()
 
 void TitleMenuUI::Update()
 {
+	if (LevelTransitionController::IsTransitioning()) { return; }
+
 	const Math::Vector2 mousePosition = GetMousePosition();
 	const bool mousePressed = (GetAsyncKeyState(VK_LBUTTON) & 0x0001) != 0;
 	const float deltaSeconds = Application::Instance().GetDeltaSeconds();
@@ -25,7 +27,7 @@ void TitleMenuUI::Update()
 	if (m_startButton.Update(mousePosition, mousePressed, deltaSeconds))
 	{
 		LevelManager::Instance().SetCurrentLevelId(0);
-		GameManager::Instance().StartGame();
+		LevelTransitionController::StartGameTransition();
 	}
 
 	m_settingButton.Update(mousePosition, mousePressed, deltaSeconds);

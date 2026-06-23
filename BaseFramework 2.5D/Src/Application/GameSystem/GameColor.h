@@ -6,5 +6,9 @@ enum class GameColor
 	Black,
 	White,
 	Red,
+	Blue,
+	Yellow,
+	Green,
+	Purple,
 	Rainbow,
 };

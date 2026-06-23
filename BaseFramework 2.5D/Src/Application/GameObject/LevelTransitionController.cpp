@@ -37,7 +37,12 @@ void LevelTransitionController::Update()
 			s_fadeAlpha + deltaSeconds / std::max(0.01f, m_fadeOutDuration));
 		if (s_fadeAlpha >= 1.0f)
 		{
-			if (s_action == TransitionAction::NextLevel)
+			if (s_action == TransitionAction::StartGame)
+			{
+				s_state = TransitionState::WaitingForReload;
+				GameManager::Instance().StartGame();
+			}
+			else if (s_action == TransitionAction::NextLevel)
 			{
 				s_state = TransitionState::WaitingForReload;
 				GameManager::Instance().CompleteLevel();
@@ -105,6 +110,17 @@ bool LevelTransitionController::StartRestartLevelTransition(
 	s_state = TransitionState::FadeOut;
 	s_action = TransitionAction::RestartLevel;
 	player->SetControlEnabled(false);
+	return true;
+}
+
+bool LevelTransitionController::StartGameTransition()
+{
+	if (s_state != TransitionState::Idle) { return false; }
+
+	s_player.reset();
+	s_fadeAlpha = 0.0f;
+	s_state = TransitionState::FadeOut;
+	s_action = TransitionAction::StartGame;
 	return true;
 }
 

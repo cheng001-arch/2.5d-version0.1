@@ -13,6 +13,7 @@ public:
 		const std::shared_ptr<PlayerController2_5D>& player);
 	static bool StartRestartLevelTransition(
 		const std::shared_ptr<PlayerController2_5D>& player);
+	static bool StartGameTransition();
 	static bool IsTransitioning();
 
 private:
@@ -27,6 +28,7 @@ private:
 	enum class TransitionAction
 	{
 		None,
+		StartGame,
 		NextLevel,
 		RestartLevel,
 	};

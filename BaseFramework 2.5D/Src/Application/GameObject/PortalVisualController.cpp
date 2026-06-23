@@ -20,6 +20,18 @@ void PortalVisualController::UpdateDoorColorVisual(GameColor color, bool isActiv
 		case GameColor::Red:
 			visualColor = { 1.0f, 0.035f, 0.025f, 1.0f };
 			break;
+		case GameColor::Blue:
+			visualColor = { 0.03f, 0.22f, 1.0f, 1.0f };
+			break;
+		case GameColor::Yellow:
+			visualColor = { 1.0f, 0.82f, 0.04f, 1.0f };
+			break;
+		case GameColor::Green:
+			visualColor = { 0.04f, 0.95f, 0.20f, 1.0f };
+			break;
+		case GameColor::Purple:
+			visualColor = { 0.58f, 0.08f, 0.95f, 1.0f };
+			break;
 		case GameColor::Rainbow:
 			visualColor = { 1.0f, 0.35f, 0.8f, 1.0f };
 			break;

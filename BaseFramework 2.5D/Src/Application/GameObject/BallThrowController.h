@@ -19,6 +19,7 @@ private:
 	bool m_wasThrowButtonHeld = false;
 	float m_chargeTime = 0.0f;
 	float m_maxChargeTime = 3.0f;
+	float m_tapChargeThreshold = 0.18f;
 	float m_minHorizontalSpeed = 7.0f;
 	float m_maxHorizontalSpeed = 31.18f;
 	float m_minVerticalSpeed = 4.5f;

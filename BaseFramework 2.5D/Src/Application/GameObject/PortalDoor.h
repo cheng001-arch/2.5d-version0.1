@@ -14,6 +14,7 @@ public:
 	void Update() override;
 	void GenerateDepthMapFromLight() override;
 	void DrawLit() override;
+	void DrawUnLit() override;
 	void SetModelAssetPath(std::string_view assetPath)
 	{
 		m_modelAssetPath = assetPath;
@@ -32,6 +33,15 @@ public:
 	const DoorExitPoint& GetExitPoint() const { return m_exitPoint; }
 	Math::Vector3 GetExitPosition(float side) const;
 	void SetExitDistance(float distance) { m_exitDistance = std::max(0.5f, distance); }
+	void SetAllowedEntrySide(float side)
+	{
+		m_allowedEntrySide = side == 0.0f ? 0.0f : (side < 0.0f ? -1.0f : 1.0f);
+	}
+	void SetForcedExitSide(float side)
+	{
+		m_forcedExitSide = side == 0.0f ? 0.0f : (side < 0.0f ? -1.0f : 1.0f);
+	}
+	float GetForcedExitSide() const { return m_forcedExitSide; }
 
 	void SetTeleportCooldownDuration(float seconds)
 	{
@@ -49,6 +59,25 @@ public:
 	void SetCanBeColored(bool canBeColored) { m_canBeColored = canBeColored; }
 	void SetFixedColor(bool isFixedColor) { m_isFixedColor = isFixedColor; }
 	void SetCanBeActivated(bool canBeActivated) { m_canBeActivated = canBeActivated; }
+	void SetBlockedBallColor(GameColor color)
+	{
+		m_blockedBallColors.clear();
+		if (color != GameColor::None) { m_blockedBallColors.push_back(color); }
+	}
+	void AddBlockedBallColor(GameColor color)
+	{
+		if (color == GameColor::None) { return; }
+		if (std::find(
+			m_blockedBallColors.begin(),
+			m_blockedBallColors.end(),
+			color) == m_blockedBallColors.end())
+		{
+			m_blockedBallColors.push_back(color);
+		}
+	}
+	void SetSolidForPlayer(bool solid) { m_isSolidForPlayer = solid; }
+	bool IsSolidForPlayer() const { return m_isSolidForPlayer; }
+	void SetLockedVisual(bool locked);
 
 	GameColor GetInitialColor() const { return m_initialColor; }
 	GameColor GetCurrentColor() const { return m_currentColor; }
@@ -69,6 +98,7 @@ private:
 	void DetectPlayerEntry();
 
 	std::shared_ptr<KdModelData> m_model;
+	std::shared_ptr<KdSquarePolygon> m_lockedCross;
 	std::string m_modelAssetPath = "Asset/Data/door/door.gltf";
 	std::weak_ptr<MapArea> m_ownerArea;
 	std::string m_doorId;
@@ -77,14 +107,19 @@ private:
 	PortalVisualController m_visualController;
 	GameColor m_initialColor = GameColor::None;
 	GameColor m_currentColor = GameColor::None;
+	std::vector<GameColor> m_blockedBallColors;
 	bool m_canBeColored = true;
 	bool m_isFixedColor = false;
 	bool m_canBeActivated = true;
 	bool m_isActivated = false;
+	bool m_isSolidForPlayer = false;
+	bool m_hasLockedVisual = false;
 	bool m_hasPortalSurface = false;
 	float m_teleportCooldownDuration = 0.75f;
 	float m_teleportCooldownRemaining = 0.0f;
 	float m_exitDistance = 1.5f;
+	float m_allowedEntrySide = 0.0f;
+	float m_forcedExitSide = 0.0f;
 	float m_playerTriggerHalfWidth = 0.72f;
 	float m_playerTriggerHalfDepth = 1.45f;
 };

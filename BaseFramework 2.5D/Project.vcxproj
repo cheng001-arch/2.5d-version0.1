@@ -287,6 +287,7 @@
     <ClInclude Include="Src\Application\GameObject\PlayerCarrySlot.h" />
     <ClInclude Include="Src\Application\GameObject\PlayerInteractor.h" />
     <ClInclude Include="Src\Application\GameObject\ColorBall.h" />
+    <ClInclude Include="Src\Application\GameObject\BallStorageDevice.h" />
     <ClInclude Include="Src\Application\GameObject\BallThrowController.h" />
     <ClInclude Include="Src\Application\GameObject\PortalDoor.h" />
     <ClInclude Include="Src\Application\GameObject\DoorExitPoint.h" />
@@ -361,6 +362,7 @@
     <ClCompile Include="Src\Application\GameObject\PlayerCarrySlot.cpp" />
     <ClCompile Include="Src\Application\GameObject\PlayerInteractor.cpp" />
     <ClCompile Include="Src\Application\GameObject\ColorBall.cpp" />
+    <ClCompile Include="Src\Application\GameObject\BallStorageDevice.cpp" />
     <ClCompile Include="Src\Application\GameObject\BallThrowController.cpp" />
     <ClCompile Include="Src\Application\GameObject\PortalDoor.cpp" />
     <ClCompile Include="Src\Application\GameObject\PortalVisualController.cpp" />

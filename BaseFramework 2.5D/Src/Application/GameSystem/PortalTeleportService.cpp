@@ -19,7 +19,11 @@ bool PortalTeleportService::TeleportPlayer(
 	if (!targetArea) { return false; }
 
 	// Entering from the left exits on the linked door's right, and vice versa.
-	const float exitSide = entrySide < 0.0f ? 1.0f : -1.0f;
+	float exitSide = entrySide < 0.0f ? 1.0f : -1.0f;
+	if (toDoor->GetForcedExitSide() != 0.0f)
+	{
+		exitSide = toDoor->GetForcedExitSide();
+	}
 	const Math::Vector3 exitPosition = toDoor->GetExitPosition(exitSide);
 	AreaManager::Instance().SwitchToArea(targetArea);
 	player->SetCurrentArea(targetArea);

@@ -270,6 +270,7 @@
     <ClInclude Include="Src\Application\GameObject\PlayerCarrySlot.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
     <ClInclude Include="Src\Application\GameObject\PlayerInteractor.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
     <ClInclude Include="Src\Application\GameObject\ColorBall.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
+    <ClInclude Include="Src\Application\GameObject\BallStorageDevice.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
     <ClInclude Include="Src\Application\GameObject\BallThrowController.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
     <ClInclude Include="Src\Application\GameObject\PortalDoor.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
     <ClInclude Include="Src\Application\GameObject\DoorExitPoint.h"><Filter>Src\Application\GameObject</Filter></ClInclude>
@@ -437,6 +438,7 @@
     <ClCompile Include="Src\Application\GameObject\PlayerCarrySlot.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
     <ClCompile Include="Src\Application\GameObject\PlayerInteractor.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
     <ClCompile Include="Src\Application\GameObject\ColorBall.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
+    <ClCompile Include="Src\Application\GameObject\BallStorageDevice.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
     <ClCompile Include="Src\Application\GameObject\BallThrowController.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
     <ClCompile Include="Src\Application\GameObject\PortalDoor.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>
     <ClCompile Include="Src\Application\GameObject\PortalVisualController.cpp"><Filter>Src\Application\GameObject</Filter></ClCompile>

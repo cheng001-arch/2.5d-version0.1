@@ -141,30 +141,6 @@ void Application::DrawSprite()
 	KdShaderManager::Instance().m_spriteShader.Begin();
 	{
 		SceneManager::Instance().DrawSprite();
-
-		const auto backBuffer = KdDirect3D::Instance().GetBackBuffer();
-		const int width = backBuffer ? backBuffer->GetInfo().Width : 1280;
-		const int height = backBuffer ? backBuffer->GetInfo().Height : 720;
-		const int panelWidth = 290;
-		const int panelHeight = 34;
-		const int panelCenterX = width / 2 - panelWidth / 2 - 14;
-		const int panelCenterY = height / 2 - panelHeight / 2 - 12;
-		const Math::Color panelColor(0.02f, 0.025f, 0.04f, 0.72f);
-		const Math::Color textColor(0.92f, 0.96f, 1.0f, 1.0f);
-
-		KdShaderManager::Instance().m_spriteShader.DrawBox(
-			panelCenterX,
-			panelCenterY,
-			panelWidth / 2,
-			panelHeight / 2,
-			&panelColor,
-			true);
-		KdShaderManager::Instance().m_spriteShader.DrawFont(
-			{ static_cast<float>(width / 2 - panelWidth + 2),
-			  static_cast<float>(height / 2 - 35) },
-			&textColor,
-			"The Other Side | FPS: %d",
-			GetNowFPS());
 	}
 	KdShaderManager::Instance().m_spriteShader.End();
 }
@@ -238,7 +214,6 @@ bool Application::Init(int w, int h)
 	// フォント初期化
 	//===================================================================
 	KdFontManager::Instance().Init(GetWindowHandle());
-	KdFontManager::Instance().AddFont(0, "Consolas", 22);
 	
 	//===================================================================
 	// ゲーム固有の初期化
@@ -339,6 +314,11 @@ void Application::Execute()
 		//=========================================
 
 		m_fpsController.Update();
+
+		const std::string windowTitle =
+			"The Other Side | FPS: " +
+			std::to_string(GetNowFPS());
+		SetWindowTextA(m_window.GetWndHandle(), windowTitle.c_str());
 	}
 
 	//===================================================================
